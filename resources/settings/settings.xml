@@ -1,26 +1,8 @@
 <settings>
+    <setting propertyKey="@Properties.OwnerName" title="@Strings.NameTitle" prompt="@Strings.NamePrompt">
+        <settingConfig type="alphaNumeric" maxLength="16"/>
+    </setting>
     <setting propertyKey="@Properties.ShowSeconds" title="@Strings.SecondsTitle" prompt="@Strings.SecondsPrompt">
         <settingConfig type="boolean"/>
-    </setting>
-    <setting propertyKey="@Properties.LeftDial" title="@Strings.LeftTitle">
-        <settingConfig type="list">
-            <listEntry value="0">@Strings.OptBattery</listEntry>
-            <listEntry value="1">@Strings.OptSteps</listEntry>
-            <listEntry value="2">@Strings.OptBody</listEntry>
-        </settingConfig>
-    </setting>
-    <setting propertyKey="@Properties.RightDial" title="@Strings.RightTitle">
-        <settingConfig type="list">
-            <listEntry value="0">@Strings.OptBattery</listEntry>
-            <listEntry value="1">@Strings.OptSteps</listEntry>
-            <listEntry value="2">@Strings.OptBody</listEntry>
-        </settingConfig>
-    </setting>
-    <setting propertyKey="@Properties.TopWindow" title="@Strings.TopTitle">
-        <settingConfig type="list">
-            <listEntry value="0">@Strings.OptHr</listEntry>
-            <listEntry value="1">@Strings.OptAlt</listEntry>
-            <listEntry value="2">@Strings.OptNone</listEntry>
-        </settingConfig>
     </setting>
 </settings>

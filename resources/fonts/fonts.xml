@@ -1,0 +1,6 @@
+<fonts>
+    <!-- Baked from assets/GreatVibes-Regular.ttf by bake_font.py. Connect IQ
+         bitmap fonts do not scale, so this atlas is baked once at 44px and
+         used on every product. -->
+    <font id="ScriptName" filename="scriptname.fnt" />
+</fonts>

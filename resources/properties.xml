@@ -1,6 +1,4 @@
 <properties>
     <property id="ShowSeconds" type="boolean">true</property>
-    <property id="LeftDial" type="number">0</property>
-    <property id="RightDial" type="number">1</property>
-    <property id="TopWindow" type="number">0</property>
+    <property id="OwnerName" type="string">Singko</property>
 </properties>

@@ -2,20 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Context for continuing the Twenty-Four Inch Gauge watch face. Read before changing the dial.
+Context for continuing the Square and Compasses watch face. Read before changing the dial.
 
 ## What this is
 
-A Connect IQ analog watch face, Masonic theme. Primary target is the Epix Gen 2
-(416 × 416 AMOLED, 65k colours); `manifest.xml` also lists `epix2pro42mm`,
-`epix2pro47mm` and `epix2pro51mm`. The concept is the twenty-four inch gauge:
-the outer ring is a rule marked to eighths across a 24-hour rotation, divided
-into three arcs of eight for refreshment, labour and service, with sunrise and
-sunset marked and the night hours shaded.
+A Connect IQ analog watch face, Masonic theme, built to match a specific
+reference watch: a navy engine-turned centre, a guilloche gold chapter ring, an
+applied square and compasses around an ornate G, a day/date aperture at three,
+and **the owner's name engraved in script below the emblem** — configurable,
+defaulting to `Singko`.
 
-Central hands read normal 12-hour time. The brass cursor on the outer rim shows
-position in the 24-hour day. That split is deliberate — it gives the concept
-without forcing a 24-hour dial read.
+Primary target is the Epix Gen 2 (416 × 416 AMOLED, 65k colours); `manifest.xml`
+also lists `epix2pro42mm`, `epix2pro47mm` and `epix2pro51mm`.
+
+An earlier "Twenty-Four Inch Gauge" design (a 24-hour rule ring, three arcs of
+eight, sunrise/sunset markers, two subdials) was **replaced** by this one. It
+survives only as `render_v2.py` — see the note on that file below, because it is
+still a live dependency.
 
 ## Design decisions worth not relitigating
 
@@ -24,127 +27,128 @@ These were arrived at by iteration; earlier attempts failed for the reasons note
 - **The emblem is applied metal, not a flat shape.** Each limb has a cast
   shadow, a gradient body running across its width, and a lit edge. Flat-filled
   polygons were tried first and looked like a sticker.
-- **The emblem is large but recessed.** Shrinking it to protect the hands was
-  the wrong fix; depth is what lets the hands read across it.
-- **A thin dark line separates the compasses from the square.** Without it the
-  crossing is illegible. A wide contact shadow was tried and swallowed the
-  square's vertex.
-- **Blue sunburst, not black.** Black-and-gold reads as the cheap end of the
-  fraternal-supply market. The sunburst is two opposing bright lobes plus fine
-  angular streaking, with a vignette toward the rim.
+- **The G is baked into the emblem PNG, not drawn on device.** It needs the same
+  gradient metal as the limbs, and Monkey C primitives cannot produce that. It
+  is static, so baking costs nothing.
+- **Numerals and hour darts are engraved *into* the gold**, not laid on top: a
+  light lower lip with the dark shape over it. Gold-on-gold was illegible — the
+  first pass had an invisible `XII`.
+- **Text gets its own gold ramp (`GOLD_TEXT`).** The full `GOLD` ramp runs dark
+  at both ends, which buries small glyphs; the first `G` and the first engraved
+  name both disappeared into the dial.
+- **Blue centre, not black.** Black-and-gold reads as the cheap end of the
+  fraternal-supply market.
 - **Hands are split down their length**, lit on one side and shadowed on the
   other. That split is what reads as polished metal.
-- **Subdials are recessed wells** with concentric turning marks, a dark inner
-  arc on the upper edge and a catch-light on the lower.
+- **The gold band must not dominate.** Two early passes had it too wide and too
+  bright, and the dial read as a gold watch with a blue hole in it. The centre
+  is the subject.
 
 ## Architecture
 
-Three Monkey C files, plus two Python renderers that are part of the workflow.
+### The static/live split
+
+The static layer is expensive and changes only with the settings, so
+`buildDial()` renders it once into a `BufferedBitmap` from the graphics pool
+(`Graphics.createBufferedBitmap`, API 4.0.0) and `onUpdate` blits it. Per-frame
+work is only the hands and the day/date text.
 
 - `source/GaugeFaceApp.mc` — `AppBase`; holds the view so `onSettingsChanged`
   can forward to it.
-- `source/DialRenderer.mc` — **static layer only.** Sunburst, gauge ring, night
-  shading, indices, numerals, division labels, sun markers, subdial wells,
-  windows, emblem blit. Draws to whatever `Dc` it's handed.
-- `source/GaugeFaceView.mc` — **live layer**, plus a separate always-on
-  drawing, plus settings, sun times and the buffer lifecycle.
+- `source/DialRenderer.mc` — static layer: `drawCentre` (rayed blue),
+  `drawRing` (guilloche band, lattice, beads), `drawMarkers` (engraved darts and
+  `XII`), `drawApertureFrame`, `drawEmblem` (blit).
+- `source/GaugeFaceView.mc` — live layer, the engraved name, and a separate
+  always-on drawing.
 
-### The static/live split
-
-The static layer is expensive (~700 `fillPolygon` calls: 180 sunburst wedges ×
-3 radial bands, 96 ring segments, 192 indices) and never changes, so
-`buildDial()` renders it once into a `BufferedBitmap` from the graphics pool
-(`Graphics.createBufferedBitmap`, API 4.0.0) and `onUpdate` blits it. Per-frame
-work is only hands, cursor, subdial needles and text.
+**The owner's name is baked into the static layer.** It is drawn by
+`GaugeFaceView.drawName` into the buffer, not per frame, which is why
+`onSettingsChanged()` calls `loadSettings()` then `buildDial()` rather than just
+`requestUpdate()`. If you add anything else that varies with settings, it must
+go through the same rebuild.
 
 `buildDial()` degrades gracefully: if `createBufferedBitmap` is absent, `_dial`
-stays null and `onUpdate` calls `paintStatic(dc)` live each second. Keep
-`paintStatic` free of anything that assumes it's drawing into the buffer.
-
-**Anything baked into the static layer must trigger a rebuild when it changes.**
-Subdial labels (`dialLabel`) and the presence of the top window come from
-settings and are painted into the buffer, which is why `onSettingsChanged()`
-calls `loadSettings()` then `buildDial()` — not just `requestUpdate()`. Sunrise
-and sunset are likewise baked (the night shading and the sun markers), so a
-position fix arriving later does not update the ring until the dial is rebuilt.
+stays null and `onUpdate` calls `paintStatic(dc)` live each second.
 
 ### Coordinates are authored at 416 and scaled
 
 Every geometry constant in both the Monkey C and the Python is in "416-dial
 units". `DialRenderer` and `GaugeFaceView` each hold `_s = width / 416.0` and a
 private `p(v)` that scales-and-rounds. **Write new geometry in 416 units and put
-it through `p()`** — that is what makes the Epix Pro sizes work. `polar()` and
-`rot()` already apply it.
+it through `p()`** — that is what makes the Epix Pro sizes work.
 
-Shared constants live at the top of `DialRenderer.mc` (`DIAL_INNER` 172,
-`RING_OUTER` 204, `SUB_OFFSET` 132, `SUB_RADIUS` 34) and are referenced from
-the view — they are file-scope `const`, so no qualification is needed.
+Shared constants at the top of `DialRenderer.mc`: `BLUE_R` 148, `RING_IN` 150,
+`RING_OUT` 198, `EMBLEM_X`/`EMBLEM_Y` 98/100, plus the cost tunables `RAYS`,
+`BANDS` and `LATTICE`.
 
 ### Always-on
 
 `drawAlwaysOn` is a **separate drawing**, not a dimmed version of the main one.
 A lit blue dial cannot pass the always-on luminance budget. Thin gold on black,
-24 hour ticks, the emblem as four outline strokes, no sunburst, no second hand,
-and — when `settings.requiresBurnInProtection` is set — a per-minute pixel
-shift derived from `clock.min`, so the whole drawing walks a 5 × 5 grid over 25
-minutes.
+12 hour ticks, the emblem as four outline strokes, no second hand, no name, and
+— when `settings.requiresBurnInProtection` is set — a per-minute pixel shift
+that walks a 5 × 5 grid over 25 minutes.
 
 ## The Python renderers are part of the project
 
-`render_v2.py` produces the design mock-up; `bake_emblem.py` regenerates the
-emblem asset from the same geometry.
-
 Requires **Pillow and numpy** (`apt-get install -y python3-numpy`; there is no
-pip on this box) and the DejaVu TrueType fonts at
-`/usr/share/fonts/truetype/dejavu/`.
-
-Both scripts render at 4× supersample (`SS = 4`) and downsample, which is how
-they get gradients Monkey C primitives cannot produce. A full render is about a
-second — this is the fast loop, use it.
+pip on this box). A full render is about a second — this is the fast loop, use
+it in preference to a simulator cycle for anything about how the dial *looks*.
 
 ```bash
-python3 render_v2.py            # mock-ups -> out/ (gitignored)
-python3 bake_emblem.py          # -> resources/drawables/emblem.png, in place
-python3 bake_emblem.py /tmp/x.png   # or somewhere else, to compare before committing
+python3 render_v3.py            # the design mock-up -> out/ (gitignored)
+python3 render_v3.py Amanda     # any name, to check how it sits
+python3 bake_emblem.py          # emblem + G -> resources/drawables/emblem.png
+python3 bake_font.py            # script atlas -> resources/fonts/
 ```
 
-Paths are resolved from `render_v2.HERE` (the script's own directory), so both
-run from any cwd. `render_v2.py`'s render sits behind `if __name__ ==
-"__main__"`, because `bake_emblem.py` imports the module for its geometry and
-must not trigger a mock-up re-render as a side effect — keep it that way if you
-add anything at module scope.
+- **`render_v3.py` is the current design.** Change the look here first.
+- **`render_v2.py` is the superseded 24-hour design, but it is still imported.**
+  `render_v3.py` and `bake_emblem.py` both `import render_v2` for the shared
+  toolbox: `GOLD`, `ramp`, `applied`, `band`, `pol`, `P`, `rot`, `font`, and the
+  `HERE`/`OUT`/`SS`/`W`/`C` constants. Do not delete it, and keep its render
+  behind `if __name__ == "__main__"` so importing it stays side-effect free.
+- Paths resolve from `render_v2.HERE` (the script's own directory), so all of
+  these run from any cwd.
 
-`bake_emblem.py` compares the cropped bbox against `EXPECTED_ORIGIN` /
-`EXPECTED_SIZE` and shouts if the geometry has moved out from under the Monkey
-C. Silence means the blit offset is still right.
+### The geometry is duplicated, and the bakers check it
 
-Note the bake is not bit-reproducible across library versions: the 64-colour
-median-cut quantization picks marginally different palette entries, which came
-out as 197 of 45,796 pixels differing by at most 22/255 — visually identical.
-Don't read a small diff as a geometry change; check the printed bbox instead.
+Emblem geometry (`HINGE`, `TIP_*`, `VERTEX`, `ARM_*`, scaled by `SCALE = 1.06`)
+lives in the Python, in the baked PNG, and implicitly in the Monkey C blit
+offset. `bake_emblem.py` compares the cropped bbox against `EXPECTED_ORIGIN` /
+`EXPECTED_SIZE` and shouts if it has moved; silence means `EMBLEM_X`/`EMBLEM_Y`
+in `DialRenderer.mc` are still right. It can only warn — updating the Monkey C
+is manual.
 
-### The geometry is duplicated, in three places
+The bake is not bit-reproducible across library versions (64-colour median-cut
+picks slightly different palette entries). Don't read a small pixel diff as a
+geometry change; check the printed bbox.
 
-`HINGE`, `TIP_L`/`TIP_R`, `VERTEX`, `ARM_L`/`ARM_R`, the ring radii and the
-subdial offsets exist independently in `render_v2.py`, in `DialRenderer.mc`, and
-implicitly in the baked `emblem.png`. **If you change the emblem geometry:**
-change it in the Python, re-bake (which writes the asset in place), and then
-follow the blit offset. `DialRenderer.drawEmblem` hardcodes the asset's
-top-left as `(103, 103)` on a 416 dial at 214 × 214, which is exactly what the
-current geometry bakes to; `bake_emblem.py` will tell you when that stops being
-true, but it can only warn — updating `drawEmblem` and `EXPECTED_*` is manual.
+### The script font
 
-Iterating on the look in Python is far faster than rebuilding for the simulator.
-Use it for design changes; use the simulator for behaviour.
+Connect IQ has no cursive system font, and the name is a user setting, so it
+cannot be baked into the emblem PNG the way the G is. `bake_font.py` renders
+`assets/GreatVibes-Regular.ttf` (SIL OFL 1.1, licence in `assets/`) into a
+BMFont `.fnt` plus a glyph atlas at `resources/fonts/`, declared as
+`Rez.Fonts.ScriptName`.
+
+Two things to know:
+
+- **Connect IQ bitmap fonts do not scale.** One atlas is baked at `BAKE_PX = 44`
+  and used on every product. Across 390/416/454 px screens that is a few percent
+  of apparent size — not worth three atlases and per-device resource qualifiers.
+- `BAKE_PX` must track `size` in `render_v3.engraved_name`, or the mock-up and
+  the watch will disagree about how big the name is.
+
+If you change the typeface, keep it OFL or similarly redistributable — this repo
+is public.
 
 ## Settings
 
-Four properties in `resources/properties.xml`, surfaced by
-`resources/settings/settings.xml`: `ShowSeconds` (bool), `LeftDial`/`RightDial`
-(0 battery, 1 steps, 2 body battery), `TopWindow` (0 heart rate, 1 altitude,
-2 off). `loadSettings()` wraps the reads in a try/catch and falls back to
-`true/0/1/0`. Adding a complication means touching `dialLabel` and
-`dialFraction` together, and `drawReadouts` for the top window.
+Two properties in `resources/properties.xml`: `OwnerName` (string, default
+`Singko`, `alphaNumeric` with `maxLength="16"`) and `ShowSeconds` (boolean).
+Roughly twelve characters fit on the dial before the script starts crowding the
+square.
 
 Sideloaded apps don't get settings in the phone app — change them in the
 simulator, or publish as a private Connect IQ app.
@@ -154,19 +158,21 @@ simulator, or publish as a private Connect IQ app.
 Written without an SDK available; there is no `monkeyc` on PATH here. Expect
 first-build friction:
 
+- **The font is the least certain part.** `bake_font.py`'s output is verified
+  self-consistent — glyphs reassembled from the `.fnt` metrics are pixel-identical
+  to a direct render — but nothing has confirmed that Garmin's resource compiler
+  accepts this exact BMFont dialect, or that it wants an RGBA atlas rather than a
+  palettised one. If it rejects the font, `drawName` already falls back to
+  `FONT_SYSTEM_SMALL`.
 - Device IDs in `manifest.xml` need reconciling against
   `~/.Garmin/ConnectIQ/Devices/`.
-- Full-screen buffered bitmap may fail to allocate. Fallbacks: reduce
-  `drawSunburst` from 180 wedges to 120, or buffer at half resolution and scale
-  on blit.
-- If the face is slow to appear, cut the wedge count — that cost is all in
-  `onLayout`.
-- `computeSun()` uses `Toybox.Weather` + `Position` and needs a fix. Defaults
-  are 05:45 / 18:15 (`_sunrise = 5.75`, `_sunset = 18.25`) — set these to
-  Manila values.
-- `bodyBattery` is guarded with a `has` check and may read zero.
+- Full-screen buffered bitmap may fail to allocate. Fallbacks: halve `RAYS`, or
+  buffer at half resolution and scale on blit.
+- The static layer is roughly 900 primitive calls. Once only, in `onLayout`, but
+  if the face is slow to appear, `RAYS` and `LATTICE` are the levers.
 - Type checking is likely to complain; the code was written to `-l 2` style but
-  never verified.
+  never verified. `drawName`'s font fallback mixes `FontResource` and
+  `FontDefinition` in one ternary, which is a likely first complaint.
 
 ## Build
 
@@ -178,7 +184,7 @@ openssl pkcs8 -topk8 -inform PEM -outform DER \
   -in developer_key.pem -out developer_key.der -nocrypt
 ```
 
-Keys, `bin/` and build outputs are gitignored.
+Keys, `bin/`, `out/` and build outputs are gitignored.
 
 ```bash
 monkeyc -f monkey.jungle -o bin/GaugeFace.prg -y developer_key.der -d epix2 -r
@@ -195,5 +201,8 @@ overnight.
   unverified edits.
 - When something looks wrong, render it in Python first and compare — it is
   cheaper than a simulator cycle and isolates design from behaviour.
+- Constants are duplicated between `render_v3.py` and the Monkey C on purpose.
+  After changing either, check them against each other; a mismatch shows up as a
+  dial that looks right in Python and wrong on the watch.
 - The design has been iterated on hard. If a change makes the dial simpler or
   flatter, that is probably a regression, not a cleanup.
