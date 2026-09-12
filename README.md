@@ -5,9 +5,11 @@ Two dials in one watch face, chosen in the settings. Built for the Epix Gen 2
 
 ![the two dials side by side](docs/preview.png)
 
-**Square and Compasses** (default) — navy engine-turned centre, guilloche gold
-chapter ring, applied square and compasses around an ornate G, day/date aperture
-at three, and your name engraved in script below the emblem.
+**Square and Compasses** (default) — a navy engine-turned centre inside a wide
+gold band carrying an engraved quilted lattice, XII and VI, fine gold line-work
+in the blue field (blazing star, small square, point within a circle), the
+applied square and compasses around an ornate G, a day/date aperture at three,
+and your name engraved in script below the emblem.
 
 **Twenty-Four Inch Gauge** — the outer ring is a rule marked to eighths across a
 24-hour rotation, divided into three arcs of eight for refreshment, labour and
@@ -116,22 +118,15 @@ Budget an hour for the usual friction:
   falls back to a system font and stops being cursive.
 - **Device IDs.** Check the folder names under `~/.Garmin/ConnectIQ/Devices/`
   and reconcile `manifest.xml` against them.
-- **Memory.** Two dials means two static layers of code and two emblem assets,
-  though only one of each is live at a time. If the full-screen buffer fails to
-  allocate, halve `RAYS` in `DialSquare.mc` or the sunburst wedge count in
-  `DialGauge.mc`, or render the buffer at half resolution and scale on blit.
+- **Memory and startup.** Two dials means two static layers of code and two
+  emblem assets, though only one of each is live at a time. The Square dial's
+  static layer is about 1,180 primitive calls, drawn once in `onLayout`; if it's
+  slow to appear, drop `LATTICE_R` to 2 in `DialSquare.mc`. If the full-screen
+  buffer fails to allocate, render it at half resolution and scale on blit.
 - **Sunrise and sunset** (Gauge dial) need a position fix; until the watch has
   one they fall back to 05:45 and 18:15.
 - **Body battery** is guarded with a `has` check and will read zero where it
   isn't exposed.
-
-## Known gap
-
-The Square and Compasses dial doesn't closely match the reference watch it was
-drawn from: the gold band is narrower, the ring pattern is a single crosshatch
-rather than the reference's dense lozenge-and-✕ grid, the small scattered
-symbols are missing, the limbs are heavier and there's no VI at the bottom. Open
-work, not a settled design.
 
 ## On the artwork
 

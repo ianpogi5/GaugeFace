@@ -28,15 +28,16 @@ import render_v3 as V
 TARGETS = {
     "square": {
         "file": "emblem_square.png",
-        "origin": (98, 100),
-        "size": (224, 222),
+        "origin": (109, 110),
+        "size": (202, 201),
         "mc": "SQ_EMBLEM_X / SQ_EMBLEM_Y in source/DialSquare.mc",
-        "scale": 1.06,          # must match render_v3.emblem(scale=...)
-        "square_w": 17,
-        "comp_w": (15, 10),
-        "tip": (8, 21),         # half-width at the shoulder, length past it
-        "hinge": (12, 4.5),     # outer radius, hole radius
+        "scale": 0.96,          # must match render_v3.EMBLEM_SCALE
+        "square_w": 13,
+        "comp_w": (12, 8),
+        "tip": (7, 19),         # half-width at the shoulder, length past it
+        "hinge": (11, 4),       # outer radius, hole radius
         "separator": True,
+        "g": (78, 6),           # point size, y offset from centre
         "with_g": True,
     },
     "gauge": {
@@ -50,6 +51,7 @@ TARGETS = {
         "tip": (9, 24),
         "hinge": (14, 5),
         "separator": False,
+        "g": None,
         "with_g": False,
     },
 }
@@ -165,7 +167,8 @@ def build(spec):
                hx + hinge_hole * SS, hy + hinge_hole * SS], fill=(0, 0, 0, 0))
 
     if spec["with_g"]:
-        b.glyph(V.text_mask("G", R.font(R.SERIF, 86), (C, C + 8 * SS)),
+        gsize, gy = spec["g"]
+        b.glyph(V.text_mask("G", R.font(R.SERIF, gsize), (C, C + gy * SS)),
                 (0.0, 1.0), V.GOLD_TEXT, drop=3.0)
 
     return b.canvas

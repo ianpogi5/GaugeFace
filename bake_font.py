@@ -20,7 +20,7 @@ TTF = HERE / "assets" / "GreatVibes-Regular.ttf"
 DEST_DIR = HERE / "resources" / "fonts"
 FACE = "ScriptName"
 
-BAKE_PX = 44          # matches `size` in render_v3.engraved_name
+BAKE_PX = 34          # matches `size` in render_v3.engraved_name
 STROKE = 0            # hairline relief; see render_v3 for the design-side note
 PAD = 2               # transparent gutter so neighbours can't bleed
 ATLAS_W = 512

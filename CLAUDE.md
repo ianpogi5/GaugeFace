@@ -26,12 +26,13 @@ layers, different hand shapes, different complications:
 Primary target is the Epix Gen 2 (416 × 416 AMOLED, 65k colours); `manifest.xml`
 also lists `epix2pro42mm`, `epix2pro47mm` and `epix2pro51mm`.
 
-Known gap: the Square dial does **not** closely match the reference photo it was
-drawn from. The gold band is narrower than the photo's, the ring motif is a
-single crosshatch rather than the photo's dense lozenge-and-✕ grid, the photo's
-scattered small symbols (compass rose, small square, circle below the G) are
-absent, the limbs are heavier and there is no VI at the bottom. This was raised
-and consciously deferred; it is open work, not a settled design.
+The Square dial has had a photo-fidelity pass: the band was widened to the
+reference's proportions, the crosshatch replaced with its quilted lozenge
+lattice, the scattered line-work added (blazing star, small square, point within
+a circle), VI added at the bottom, the limbs thinned and the name retucked.
+What is still approximate rather than matched: the reference's faceted bezel is
+part of the physical watch and has no dial equivalent, and the G is DejaVu Serif
+Bold rather than the reference's own letterform.
 
 ## Design decisions worth not relitigating
 
@@ -64,9 +65,20 @@ These apply to both dials unless noted.
   fraternal-supply market.
 - **Hands are split down their length**, lit on one side and shadowed on the
   other. That split is what reads as polished metal.
-- **The gold band must not dominate.** Two early passes had it too wide and too
-  bright, and the dial read as a gold watch with a blue hole in it. The centre
-  is the subject.
+- **The gold band is wide, and that is correct.** An earlier note here said the
+  opposite — that the band must not dominate — which was wrong, and narrowing it
+  was the single biggest reason the dial did not read as the reference watch.
+  The reference gives roughly 40% of the radius to the band. Do not narrow it
+  again.
+- **The band carries a quilted lozenge lattice, not a crosshatch.** Two families
+  of chords across the annulus was tried and reads as mesh or mosquito netting.
+  The reference is a diaper of discrete cells, each with a lozenge outline and
+  alternating bright diamond or dark saltire. In Monkey C each lozenge is a dark
+  fill with the local band colour inset inside it — two fills per cell, rather
+  than four lines for an outline.
+- **The blue field carries fine gold line-work**, not just the emblem: a blazing
+  star, a small square, a point within a circle. Without them the field reads
+  empty next to the reference.
 
 ## Architecture
 
@@ -80,8 +92,9 @@ work is only the hands and the day/date text.
 - `source/GaugeFaceApp.mc` — `AppBase`; holds the view so `onSettingsChanged`
   can forward to it.
 - `source/DialSquare.mc` — class `SquareDial`: `drawCentre` (rayed blue),
-  `drawRing` (guilloche band, lattice, beads), `drawMarkers` (engraved darts and
-  `XII`), `drawApertureFrame`, `drawEmblem`.
+  `drawRing` (band, quilted lattice, teeth, beads), `drawMarkers` (engraved
+  darts, `XII` and `VI`), `drawSymbols` (blazing star, small square, point
+  within a circle), `drawApertureFrame`, `drawEmblem`.
 - `source/DialGauge.mc` — class `GaugeDial`: `drawSunburst`, `drawRing` (the
   24-hour rule, night shading, division labels, sun markers), `drawSubdial`,
   `drawWindow`, `drawEmblem`.
@@ -112,10 +125,11 @@ units". `DialRenderer` and `GaugeFaceView` each hold `_s = width / 416.0` and a
 private `p(v)` that scales-and-rounds. **Write new geometry in 416 units and put
 it through `p()`** — that is what makes the Epix Pro sizes work.
 
-Square dial constants (`DialSquare.mc`): `BLUE_R` 148, `RING_IN` 150,
-`RING_OUT` 198, `SQ_EMBLEM_X`/`Y` 98/100, plus the cost tunables `RAYS`,
-`BANDS` and `LATTICE`. Gauge dial constants (`DialGauge.mc`): `DIAL_INNER` 172,
-`RING_OUTER` 204, `SUB_OFFSET` 132, `SUB_RADIUS` 34, `GA_EMBLEM_X`/`Y` 103/103.
+Square dial constants (`DialSquare.mc`): `BLUE_R` 128, `RING_IN` 130,
+`RING_OUT` 196, `NUM_R` 163, `SQ_EMBLEM_X`/`Y` 109/110, plus the cost tunables
+`RAYS` 80, `BANDS` 3, `LATTICE_A` 56 and `LATTICE_R` 3. Gauge dial constants
+(`DialGauge.mc`): `DIAL_INNER` 172, `RING_OUTER` 204, `SUB_OFFSET` 132,
+`SUB_RADIUS` 34, `GA_EMBLEM_X`/`Y` 103/103.
 
 ### Always-on
 
@@ -172,13 +186,20 @@ cannot be baked into the emblem PNG the way the G is. `bake_font.py` renders
 BMFont `.fnt` plus a glyph atlas at `resources/fonts/`, declared as
 `Rez.Fonts.ScriptName`.
 
-Two things to know:
+Three things to know:
 
-- **Connect IQ bitmap fonts do not scale.** One atlas is baked at `BAKE_PX = 44`
+- **Connect IQ bitmap fonts do not scale.** One atlas is baked at `BAKE_PX = 34`
   and used on every product. Across 390/416/454 px screens that is a few percent
   of apparent size — not worth three atlases and per-device resource qualifiers.
 - `BAKE_PX` must track `size` in `render_v3.engraved_name`, or the mock-up and
   the watch will disagree about how big the name is.
+- **A bitmap font carries one integer advance per glyph and no kerning**, so it
+  cannot reproduce PIL's own string layout: the rounding drifts by up to a pixel
+  per letter (−2.5px across "Singko" at 34px; it happened to cancel at 44px,
+  which made an earlier check look perfect). `render_v3.name_mask` therefore
+  steps a pen by the same rounded advances the atlas stores instead of calling
+  `text()` on the whole string. Keep it that way — it is what makes the mock-up
+  honest about the device.
 
 If you change the typeface, keep it OFL or similarly redistributable — this repo
 is public.
@@ -208,20 +229,21 @@ simulator, or publish as a private Connect IQ app.
 Written without an SDK available; there is no `monkeyc` on PATH here. Expect
 first-build friction:
 
-- **The font is the least certain part.** `bake_font.py`'s output is verified
-  self-consistent — glyphs reassembled from the `.fnt` metrics are pixel-identical
-  to a direct render — but nothing has confirmed that Garmin's resource compiler
-  accepts this exact BMFont dialect, or that it wants an RGBA atlas rather than a
-  palettised one. If it rejects the font, `drawName` already falls back to
-  `FONT_SYSTEM_SMALL`.
+- **The font is the least certain part.** Nothing has confirmed that Garmin's
+  resource compiler accepts this exact BMFont dialect, or that it wants an RGBA
+  atlas rather than a palettised one. If it rejects the font, `drawName` already
+  falls back to `FONT_SYSTEM_SMALL`. What *is* verified: glyphs reassembled from
+  the baked `.fnt` metrics match the mock-up's own layout to within half a pixel
+  of centre on several names.
 - Device IDs in `manifest.xml` need reconciling against
   `~/.Garmin/ConnectIQ/Devices/`.
 - Full-screen buffered bitmap may fail to allocate. Fallbacks: halve `RAYS`, or
   buffer at half resolution and scale on blit.
-- The static layer is roughly 900 primitive calls for the Square dial and ~700
-  for the Gauge. Once only, in `onLayout`, but if the face is slow to appear,
-  `RAYS` and `LATTICE` (Square) or the sunburst wedge count (Gauge) are the
-  levers.
+- The static layer is roughly **1,180** primitive calls for the Square dial
+  (the quilted band is 688 of them) and ~700 for the Gauge. Once only, in
+  `onLayout`, but if the face is slow to appear, drop `LATTICE_R` to 2 before
+  touching `RAYS` — the band matters more to the likeness than the rays, which
+  the emblem largely covers.
 - Carrying two dials doubles the static-layer code and adds a second emblem
   asset (~60 KB of drawables total). Only one dial's renderer and bitmap are
   live at a time, so the cost is mostly flash rather than RAM — but this app was

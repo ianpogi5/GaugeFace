@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 import render_v2 as R
 
@@ -27,8 +27,13 @@ SANSB = R.SANSB
 
 NAME = "Singko"
 
-BLUE_R = 148          # inner blue dial
-RING_IN, RING_OUT = 150, 198
+# The reference photo gives roughly 60% of the dial to the blue centre and the
+# rest to the gold band. Earlier passes had the band far too narrow and the
+# dial read as a blue face with a gold trim rather than an engraved bezel.
+BLUE_R = 128          # inner blue dial
+RING_IN, RING_OUT = 130, 196
+
+EMBLEM_SCALE = 0.96   # must match bake_emblem.TARGETS["square"]["scale"]
 
 # The full GOLD ramp runs dark at both ends, which buries small glyphs. Text and
 # the G get a ramp that stays in the bright half.
@@ -104,13 +109,20 @@ def blue_centre():
 
 # ------------------------------------------------------------- guilloche ring
 
+# The band is divided into cells; every cell carries a lozenge outline and,
+# alternating, either a bright diamond or a dark saltire. That quilted diaper
+# is what the photo's band actually is - a single crosshatch of chords, which
+# is what was here before, reads as mesh rather than engraving.
+LATTICE_A = 56        # cells around
+LATTICE_R = 3         # rows across the band
+
+
 def gold_ring(img):
     d = ImageDraw.Draw(img, "RGBA")
 
     # annulus base, brighter at the top where the light sits
     y, x = np.mgrid[0:W, 0:W]
     dx, dy = (x - C) / SS, (y - C) / SS
-    r = np.hypot(dx, dy)
     t = np.clip((dy / RING_OUT + 1) / 2, 0, 1)
     base = (GOLD[(np.clip(0.30 + t * 0.42, 0, 1) * 255).astype(int)]
             ).astype(np.uint8)
@@ -123,53 +135,75 @@ def gold_ring(img):
         fill=0)
     img.paste(Image.fromarray(base, "RGB"), (0, 0), ann)
 
-    # engine-turned lattice: two opposing families of chords make the diamonds
-    N = 90
-    dark = (74, 54, 22, 165)
-    for k in range(N):
-        a = k / N * 2 * math.pi
-        b = (k + 3.2) / N * 2 * math.pi
-        d.line([pol(RING_IN + 5, a), pol(RING_OUT - 6, b)], fill=dark,
-               width=int(0.8 * SS))
-        d.line([pol(RING_IN + 5, b), pol(RING_OUT - 6, a)], fill=dark,
-               width=int(0.8 * SS))
+    field_in, field_out = RING_IN + 9, RING_OUT - 11
+    step = (field_out - field_in) / LATTICE_R
+    dark = (62, 45, 18, 225)
+    lite = (244, 226, 176, 225)
 
-    # a dot in the eye of every second diamond
-    for k in range(0, N, 2):
-        a = (k + 1.6) / N * 2 * math.pi
-        p = pol((RING_IN + RING_OUT) / 2, a)
-        rr = 1.6 * SS
-        d.ellipse([p[0] - rr, p[1] - rr, p[0] + rr, p[1] + rr],
-                  fill=(246, 226, 172, 235))
+    for row in range(LATTICE_R):
+        r0 = field_in + row * step
+        r1 = r0 + step
+        rm = (r0 + r1) / 2
+        for k in range(LATTICE_A):
+            a0 = k / LATTICE_A * 2 * math.pi
+            a1 = (k + 1) / LATTICE_A * 2 * math.pi
+            am = (a0 + a1) / 2
 
-    # beaded borders, inner and outer
-    for rad, n, br in ((RING_IN + 4, 96, 1.5), (RING_OUT - 4, 120, 1.5)):
-        for k in range(n):
-            a = k / n * 2 * math.pi
-            p = pol(rad, a)
-            d.ellipse([p[0] - br * SS, p[1] - br * SS,
-                       p[0] + br * SS, p[1] + br * SS],
-                      fill=(232, 206, 150, 255))
+            # lozenge: the cell's four edge midpoints
+            d.polygon([pol(rm, a0), pol(r1, am), pol(rm, a1), pol(r0, am)],
+                      outline=dark, width=int(0.9 * SS))
 
-    for rad, wid, col in ((RING_IN, 2.2, (208, 172, 96)),
-                          (RING_OUT, 2.6, (208, 172, 96)),
-                          (BLUE_R, 1.6, (150, 120, 60))):
+            if (k + row) % 2 == 0:
+                # bright diamond in the eye
+                f = 0.24
+                d.polygon([pol(rm, a0 + (am - a0) * (1 - f)),
+                           pol(rm + (r1 - rm) * f, am),
+                           pol(rm, a1 - (a1 - am) * (1 - f)),
+                           pol(rm - (rm - r0) * f, am)], fill=lite)
+            else:
+                # dark saltire in the eye
+                d.line([pol(r0 + step * 0.28, a0 + (a1 - a0) * 0.28),
+                        pol(r1 - step * 0.28, a1 - (a1 - a0) * 0.28)],
+                       fill=dark, width=int(0.9 * SS))
+                d.line([pol(r0 + step * 0.28, a1 - (a1 - a0) * 0.28),
+                        pol(r1 - step * 0.28, a0 + (a1 - a0) * 0.28)],
+                       fill=dark, width=int(0.9 * SS))
+
+    # fine radial teeth on the inner border, polished bead on the outer
+    for k in range(LATTICE_A * 3):
+        a = k / (LATTICE_A * 3) * 2 * math.pi
+        d.line([pol(RING_IN + 1.5, a), pol(field_in - 1.0, a)],
+               fill=(96, 72, 30, 200), width=int(0.8 * SS))
+    for k in range(132):
+        a = k / 132 * 2 * math.pi
+        p = pol(RING_OUT - 5, a)
+        br = 1.5 * SS
+        d.ellipse([p[0] - br, p[1] - br, p[0] + br, p[1] + br],
+                  fill=(234, 210, 156, 255))
+
+    for rad, wid, col in ((RING_IN, 2.4, (214, 178, 100)),
+                          (RING_OUT, 3.0, (222, 188, 114)),
+                          (BLUE_R, 1.8, (150, 120, 60))):
         d.ellipse([C - rad * SS, C - rad * SS, C + rad * SS, C + rad * SS],
                   outline=col, width=int(wid * SS))
 
 
 # -------------------------------------------------------------------- markers
 
+NUM_R = RING_IN + 33        # numerals and darts share the band's mid-radius
+
+
 def markers(img):
     d = ImageDraw.Draw(img, "RGBA")
     for h in range(12):
-        if h == 0:
-            continue        # XII sits there instead
+        if h == 0 or h == 6:
+            continue        # XII and VI sit there instead
         a = h / 12 * 2 * math.pi
-        p1, p2 = pol(RING_IN + 12, a), pol(RING_IN + 26, a)
+        p1, p2 = pol(NUM_R - 9, a), pol(NUM_R + 9, a)
         n = (-(p2[1] - p1[1]), p2[0] - p1[0])
         ln = math.hypot(*n) or 1
-        nx, ny = n[0] / ln * 3.4 * SS, n[1] / ln * 3.4 * SS
+        nx, ny = n[0] / ln * 4.0 * SS, n[1] / ln * 4.0 * SS
+        # engraved: light lower lip, dark shape over it
         d.polygon([(p1[0] + nx + 1.2 * SS, p1[1] + ny + 1.2 * SS),
                    (p2[0] + 1.2 * SS, p2[1] + 1.2 * SS),
                    (p1[0] - nx + 1.2 * SS, p1[1] - ny + 1.2 * SS)],
@@ -177,16 +211,49 @@ def markers(img):
         d.polygon([(p1[0] + nx, p1[1] + ny), p2, (p1[0] - nx, p1[1] - ny)],
                   fill=(58, 42, 16, 235))
 
-    px, py = pol(RING_IN + 24, 0)
-    f = font(SERIF, 26)
-    d.text((px + 1.2 * SS, py + 1.2 * SS), "XII", font=f,
-           fill=(240, 218, 162, 210), anchor="mm")
-    d.text((px, py), "XII", font=f, fill=(54, 38, 14, 240), anchor="mm")
+    f = font(SERIF, 30)
+    for label, a in (("XII", 0.0), ("VI", math.pi)):
+        px, py = pol(NUM_R, a)
+        d.text((px + 1.3 * SS, py + 1.3 * SS), label, font=f,
+               fill=(240, 218, 162, 210), anchor="mm")
+        d.text((px, py), label, font=f, fill=(54, 38, 14, 240), anchor="mm")
+
+
+# The photo scatters fine gold line-work in the blue field between the limbs:
+# a blazing star upper-left, a small square upper-right, and a point within a
+# circle below the G. These are engraved lines, not applied metal.
+def symbols(img):
+    d = ImageDraw.Draw(img, "RGBA")
+    gold = (216, 180, 106, 255)
+    pen = int(1.1 * SS)
+
+    sx, sy = pol(88, -0.94)
+    rr = 12 * SS
+    d.ellipse([sx - rr, sy - rr, sx + rr, sy + rr], outline=gold, width=pen)
+    for i in range(8):
+        a = i / 8 * 2 * math.pi
+        d.line([(sx + math.sin(a) * rr * 0.35, sy - math.cos(a) * rr * 0.35),
+                (sx + math.sin(a) * rr * 1.55, sy - math.cos(a) * rr * 1.55)],
+               fill=gold, width=pen)
+    d.ellipse([sx - 2.4 * SS, sy - 2.4 * SS, sx + 2.4 * SS, sy + 2.4 * SS],
+              fill=gold)
+
+    qx, qy = pol(88, 0.94)
+    h = 11 * SS
+    d.rectangle([qx - h, qy - h, qx + h, qy + h], outline=gold, width=pen)
+    d.rectangle([qx - h * 0.55, qy - h * 0.55, qx + h * 0.55, qy + h * 0.55],
+                outline=gold, width=pen)
+
+    cx2, cy2 = pol(66, math.pi)
+    rr = 9.5 * SS
+    d.ellipse([cx2 - rr, cy2 - rr, cx2 + rr, cy2 + rr], outline=gold, width=pen)
+    d.ellipse([cx2 - 2.6 * SS, cy2 - 2.6 * SS, cx2 + 2.6 * SS, cy2 + 2.6 * SS],
+              fill=gold)
 
 
 # --------------------------------------------------------------------- emblem
 
-def emblem(img, scale=1.06):
+def emblem(img, scale=EMBLEM_SCALE):
     def s(pt):
         return (pt[0] * scale, pt[1] * scale)
 
@@ -195,7 +262,7 @@ def emblem(img, scale=1.06):
     ARM_L, ARM_R = s(R.ARM_L), s(R.ARM_R)
 
     # square first, compasses over it
-    for p1, p2, w1, w2 in [(VERTEX, ARM_L, 17, 17), (VERTEX, ARM_R, 17, 17)]:
+    for p1, p2, w1, w2 in [(VERTEX, ARM_L, 13, 13), (VERTEX, ARM_R, 13, 13)]:
         q, n = R.band(p1, p2, w1, w2)
         R.applied(img, q, n, GOLD, boost=0.86)
 
@@ -203,7 +270,7 @@ def emblem(img, scale=1.06):
     d.line([P(*VERTEX), P(*ARM_L)], fill=(26, 20, 8, 210), width=int(1.4 * SS))
     d.line([P(*VERTEX), P(*ARM_R)], fill=(26, 20, 8, 210), width=int(1.4 * SS))
 
-    for p1, p2, w1, w2 in [(HINGE, TIP_L, 15, 10), (HINGE, TIP_R, 15, 10)]:
+    for p1, p2, w1, w2 in [(HINGE, TIP_L, 12, 8), (HINGE, TIP_R, 12, 8)]:
         q, n = R.band(p1, p2, w1, w2)
         R.applied(img, q, n, GOLD)
     for tip in (TIP_L, TIP_R):
@@ -211,20 +278,20 @@ def emblem(img, scale=1.06):
         ln = math.hypot(dx, dy)
         ux, uy = dx / ln, dy / ln
         nx, ny = -uy, ux
-        tri = [P(tip[0] + nx * 8, tip[1] + ny * 8),
-               P(tip[0] + ux * 21, tip[1] + uy * 21),
-               P(tip[0] - nx * 8, tip[1] - ny * 8)]
+        tri = [P(tip[0] + nx * 7, tip[1] + ny * 7),
+               P(tip[0] + ux * 19, tip[1] + uy * 19),
+               P(tip[0] - nx * 7, tip[1] - ny * 7)]
         R.applied(img, tri, (nx, ny), GOLD)
 
     d = ImageDraw.Draw(img, "RGBA")
     hx, hy = P(*HINGE)
-    d.ellipse([hx - 12 * SS, hy - 12 * SS, hx + 12 * SS, hy + 12 * SS],
-              fill=(120, 94, 44), outline=(248, 226, 170), width=int(2 * SS))
-    d.ellipse([hx - 4.5 * SS, hy - 4.5 * SS, hx + 4.5 * SS, hy + 4.5 * SS],
+    d.ellipse([hx - 11 * SS, hy - 11 * SS, hx + 11 * SS, hy + 11 * SS],
+              fill=(120, 94, 44), outline=(248, 226, 170), width=int(1.8 * SS))
+    d.ellipse([hx - 4 * SS, hy - 4 * SS, hx + 4 * SS, hy + 4 * SS],
               fill=(12, 28, 58))
 
     # the G is the hero of this dial: large, bright, over the crossing
-    gold_from_mask(img, text_mask("G", font(SERIF, 86), (C, C + 8 * SS)),
+    gold_from_mask(img, text_mask("G", font(SERIF, 78), (C, C + 6 * SS)),
                    (0.0, 1.0), lut=GOLD_TEXT, drop=3.0)
 
 
@@ -232,7 +299,7 @@ def emblem(img, scale=1.06):
 
 def aperture(img, day="SUN", date="8"):
     d = ImageDraw.Draw(img, "RGBA")
-    x0, y0, x1, y1 = C + 72 * SS, C - 11 * SS, C + 114 * SS, C + 11 * SS
+    x0, y0, x1, y1 = C + 64 * SS, C - 10 * SS, C + 104 * SS, C + 10 * SS
     d.rounded_rectangle([x0 - 2 * SS, y0 - 2 * SS, x1 + 2 * SS, y1 + 2 * SS],
                         radius=2 * SS, fill=(150, 120, 58))
     d.rounded_rectangle([x0, y0, x1, y1], radius=1.5 * SS, fill=(238, 236, 230))
@@ -246,15 +313,40 @@ def aperture(img, day="SUN", date="8"):
 
 # ----------------------------------------------------------------------- name
 
-def engraved_name(img, name=NAME, y=104, size=44):
+def name_mask(name, size, y, stroke=0.45):
+    """Lay the name out the way the watch will.
+
+    Connect IQ draws from the baked bitmap font, which carries one *integer*
+    advance per glyph and no kerning. PIL's own string rendering kerns and uses
+    fractional advances, so the two drift - at this size by about 2.5px across
+    six letters. Stepping a pen by the same rounded advances the atlas stores
+    keeps the mock-up honest about what the device will show.
+    """
+    f1 = ImageFont.truetype(SCRIPT, size)       # 1x: the atlas's own metrics
+    adv = [round(f1.getlength(ch)) for ch in name]
+    ascent, descent = f1.getmetrics()
+    # Connect IQ centres the line box, so the baseline sits here
+    baseline = y + (ascent - descent) / 2.0
+
+    fss = font(SCRIPT, size)                    # 4x for the actual drawing
+    m = Image.new("L", (W, W), 0)
+    d = ImageDraw.Draw(m)
+    pen = C - sum(adv) * SS / 2.0
+    for ch, a in zip(name, adv):
+        d.text((pen, C + baseline * SS), ch, font=fss, fill=255, anchor="ls",
+               stroke_width=int(stroke * SS), stroke_fill=255)
+        pen += a * SS
+    return m
+
+
+def engraved_name(img, name=NAME, y=110, size=34):
     """The owner's name in engraved script, applied gold like everything else.
 
     Great Vibes is a high-contrast face: its hairlines land near a single pixel
     at dial scale, so a hair of stroke keeps them from dropping out on device.
     """
-    f = font(SCRIPT, size)
-    gold_from_mask(img, text_mask(name, f, (C, C + y * SS), stroke=0.45),
-                   (0.0, 1.0), lut=GOLD_TEXT, drop=1.8)
+    gold_from_mask(img, name_mask(name, size, y), (0.0, 1.0),
+                   lut=GOLD_TEXT, drop=1.8)
 
 
 # --------------------------------------------------------------------- layers
@@ -269,6 +361,7 @@ def draw_static(name=NAME):
 
     gold_ring(img)
     markers(img)
+    symbols(img)
     emblem(img)
     aperture(img)
     engraved_name(img, name)
@@ -280,7 +373,7 @@ def hands(img, h, m, s):
     ha = ((h % 12) + m / 60) / 12 * 2 * math.pi
     ma = (m + s / 60) / 60 * 2 * math.pi
 
-    for ang, L, wd in ((ha, 88, 10), (ma, 132, 8)):
+    for ang, L, wd in ((ha, 80, 9), (ma, 124, 7)):
         sh = Image.new("L", img.size, 0)
         ImageDraw.Draw(sh).polygon(
             [rot(-wd, 16, ang), rot(0, -L, ang), rot(wd, 16, ang), rot(0, 26, ang)],
@@ -291,7 +384,7 @@ def hands(img, h, m, s):
         img.paste(Image.new("RGB", img.size, (5, 12, 26)), (0, 0), sh)
 
     d = ImageDraw.Draw(img, "RGBA")
-    for ang, L, wd in ((ha, 88, 10), (ma, 132, 8)):
+    for ang, L, wd in ((ha, 80, 9), (ma, 124, 7)):
         d.polygon([rot(-wd, 16, ang), rot(0, -L, ang), rot(0, 26, ang)],
                   fill=(250, 232, 182))
         d.polygon([rot(0, 16, ang), rot(0, -L, ang), rot(wd, 16, ang),
@@ -300,11 +393,11 @@ def hands(img, h, m, s):
                    rot(0, 26, ang)], outline=(92, 70, 28), width=int(1.0 * SS))
 
     sa = s / 60 * 2 * math.pi
-    d.line([rot(0, 30, sa), rot(0, -140, sa)], fill=(238, 198, 120),
+    d.line([rot(0, 30, sa), rot(0, -138, sa)], fill=(238, 198, 120),
            width=int(1.6 * SS))
-    d.ellipse([C - 7 * SS, C - 7 * SS, C + 7 * SS, C + 7 * SS],
-              fill=(226, 196, 132), outline=(120, 92, 40), width=int(1.2 * SS))
-    d.ellipse([C - 2.5 * SS, C - 2.5 * SS, C + 2.5 * SS, C + 2.5 * SS],
+    d.ellipse([C - 6 * SS, C - 6 * SS, C + 6 * SS, C + 6 * SS],
+              fill=(226, 196, 132), outline=(120, 92, 40), width=int(1.1 * SS))
+    d.ellipse([C - 2.2 * SS, C - 2.2 * SS, C + 2.2 * SS, C + 2.2 * SS],
               fill=(16, 30, 56))
     return img
 

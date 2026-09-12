@@ -135,6 +135,7 @@ class GaugeFaceView extends WatchUi.WatchFace {
         r.drawCentre(dc);
         r.drawRing(dc);
         r.drawMarkers(dc);
+        r.drawSymbols(dc);
         r.drawApertureFrame(dc);
         r.drawEmblem(dc);
         drawName(dc);
@@ -162,7 +163,7 @@ class GaugeFaceView extends WatchUi.WatchFace {
     // Square dial only - the Gauge dial's field is already full.
     private function drawName(dc as Dc) as Void {
         if (_name.length() == 0) { return; }
-        var y = _cy + p(104);
+        var y = _cy + p(110);
         var f = (_script != null) ? _script : Graphics.FONT_SYSTEM_SMALL;
 
         dc.setColor(0x6A5426, Graphics.COLOR_TRANSPARENT);
@@ -249,18 +250,18 @@ class GaugeFaceView extends WatchUi.WatchFace {
     private function liveSquare(dc as Dc, clock as System.ClockTime) as Void {
         var now = Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
         dc.setColor(0x18181C, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_cx + p(83.5), _cy, Graphics.FONT_SYSTEM_XTINY,
+        dc.drawText(_cx + p(75.5), _cy, Graphics.FONT_SYSTEM_XTINY,
             now.day_of_week.toUpper(),
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         dc.setColor(0xBE2022, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_cx + p(104.5), _cy, Graphics.FONT_SYSTEM_XTINY,
+        dc.drawText(_cx + p(95.5), _cy, Graphics.FONT_SYSTEM_XTINY,
             now.day.format("%d"),
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        handDauphine(dc, hourAngle(clock), 88, 10);
-        handDauphine(dc, minuteAngle(clock), 132, 8);
-        secondHand(dc, clock, 140, 30, 1.6);
-        cap(dc, 7, 2.5);
+        handDauphine(dc, hourAngle(clock), 80, 9);
+        handDauphine(dc, minuteAngle(clock), 124, 7);
+        secondHand(dc, clock, 138, 28, 1.6);
+        cap(dc, 6, 2.2);
     }
 
     private function liveGauge(dc as Dc, clock as System.ClockTime) as Void {
@@ -409,7 +410,7 @@ class GaugeFaceView extends WatchUi.WatchFace {
         }
 
         // emblem reduced to an outline, at whichever geometry this dial uses
-        var sc = gauge ? 1.0 : 1.06;
+        var sc = gauge ? 1.0 : 0.96;
         dc.setColor(0x6B5628, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(p(1.8) < 1 ? 1 : p(1.8));
         limb(dc, cx, cy, 0, -88 * sc, -78 * sc, 58 * sc);
@@ -422,8 +423,8 @@ class GaugeFaceView extends WatchUi.WatchFace {
         var ma = minuteAngle(clock);
         dc.setColor(0x9A9384, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(p(5) < 1 ? 1 : p(5));
-        var hl = gauge ? 92 : 88;
-        var ml = gauge ? 148 : 132;
+        var hl = gauge ? 92 : 80;
+        var ml = gauge ? 148 : 124;
         dc.drawLine(cx, cy, cx + p(hl * Math.sin(ha)), cy - p(hl * Math.cos(ha)));
         dc.setPenWidth(p(3.5) < 1 ? 1 : p(3.5));
         dc.drawLine(cx, cy, cx + p(ml * Math.sin(ma)), cy - p(ml * Math.cos(ma)));
