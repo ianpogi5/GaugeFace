@@ -28,16 +28,16 @@ import render_v3 as V
 TARGETS = {
     "square": {
         "file": "emblem_square.png",
-        "origin": (109, 110),
-        "size": (202, 201),
+        "origin": (97, 99),
+        "size": (225, 223),
         "mc": "SQ_EMBLEM_X / SQ_EMBLEM_Y in source/DialSquare.mc",
-        "scale": 0.96,          # must match render_v3.EMBLEM_SCALE
+        "scale": 1.08,          # must match render_v3.EMBLEM_SCALE
         "square_w": 13,
         "comp_w": (12, 8),
         "tip": (7, 19),         # half-width at the shoulder, length past it
         "hinge": (11, 4),       # outer radius, hole radius
         "separator": True,
-        "g": (78, 6),           # point size, y offset from centre
+        "g": (86, 7),           # point size, y offset from centre
         "with_g": True,
     },
     "gauge": {

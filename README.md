@@ -5,8 +5,8 @@ Two dials in one watch face, chosen in the settings. Built for the Epix Gen 2
 
 ![the two dials side by side](docs/preview.png)
 
-**Square and Compasses** (default) — a navy engine-turned centre inside a wide
-navy band carrying a gold quilted lattice, gold XII and VI, fine gold line-work
+**Square and Compasses** (default) — a navy engine-turned centre inside a navy
+band carrying a gold quilted lattice, gold XII and VI, fine gold line-work
 in the blue field (blazing star, small square, point within a circle), the
 applied square and compasses around an ornate G, a day/date aperture at three,
 and your name engraved in script below the emblem.
@@ -120,7 +120,7 @@ Budget an hour for the usual friction:
   and reconcile `manifest.xml` against them.
 - **Memory and startup.** Two dials means two static layers of code and two
   emblem assets, though only one of each is live at a time. The Square dial's
-  static layer is about 1,110 primitive calls, drawn once in `onLayout`; if it's
+  static layer is about 970 primitive calls, drawn once in `onLayout`; if it's
   slow to appear, drop `LATTICE_R` to 2 in `DialSquare.mc`. If the full-screen
   buffer fails to allocate, render it at half resolution and scale on blit.
 - **Sunrise and sunset** (Gauge dial) need a position fix; until the watch has

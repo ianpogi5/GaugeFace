@@ -30,10 +30,10 @@ NAME = "Singko"
 # The reference photo gives roughly 60% of the dial to the blue centre and the
 # rest to the gold band. Earlier passes had the band far too narrow and the
 # dial read as a blue face with a gold trim rather than an engraved bezel.
-BLUE_R = 128          # inner blue dial
-RING_IN, RING_OUT = 130, 196
+BLUE_R = 144          # inner blue dial
+RING_IN, RING_OUT = 146, 196
 
-EMBLEM_SCALE = 0.96   # must match bake_emblem.TARGETS["square"]["scale"]
+EMBLEM_SCALE = 1.08   # must match bake_emblem.TARGETS["square"]["scale"]
 
 # The full GOLD ramp runs dark at both ends, which buries small glyphs. Text and
 # the G get a ramp that stays in the bright half.
@@ -114,7 +114,7 @@ def blue_centre():
 # bezel. Getting this backwards was also why widening the band made the dial
 # worse: it was widening the wrong material.
 LATTICE_A = 56        # cells around
-LATTICE_R = 3         # rows across the band
+LATTICE_R = 2         # rows across the band
 
 
 def ring_field():
@@ -187,7 +187,7 @@ def ornate_ring(img):
                   outline=col, width=int(wid * SS))
 
 
-NUM_R = RING_IN + 33        # numerals and darts share the band's mid-radius
+NUM_R = RING_IN + 25        # numerals and darts share the band's mid-radius
 
 
 def markers(img):
@@ -219,7 +219,7 @@ def symbols(img):
     gold = (216, 180, 106, 255)
     pen = int(1.1 * SS)
 
-    sx, sy = pol(88, -0.94)
+    sx, sy = pol(96, -0.94)
     rr = 12 * SS
     d.ellipse([sx - rr, sy - rr, sx + rr, sy + rr], outline=gold, width=pen)
     for i in range(8):
@@ -230,13 +230,13 @@ def symbols(img):
     d.ellipse([sx - 2.4 * SS, sy - 2.4 * SS, sx + 2.4 * SS, sy + 2.4 * SS],
               fill=gold)
 
-    qx, qy = pol(88, 0.94)
+    qx, qy = pol(96, 0.94)
     h = 11 * SS
     d.rectangle([qx - h, qy - h, qx + h, qy + h], outline=gold, width=pen)
     d.rectangle([qx - h * 0.55, qy - h * 0.55, qx + h * 0.55, qy + h * 0.55],
                 outline=gold, width=pen)
 
-    cx2, cy2 = pol(66, math.pi)
+    cx2, cy2 = pol(72, math.pi)
     rr = 9.5 * SS
     d.ellipse([cx2 - rr, cy2 - rr, cx2 + rr, cy2 + rr], outline=gold, width=pen)
     d.ellipse([cx2 - 2.6 * SS, cy2 - 2.6 * SS, cx2 + 2.6 * SS, cy2 + 2.6 * SS],
@@ -283,7 +283,7 @@ def emblem(img, scale=EMBLEM_SCALE):
               fill=(12, 28, 58))
 
     # the G is the hero of this dial: large, bright, over the crossing
-    gold_from_mask(img, text_mask("G", font(SERIF, 78), (C, C + 6 * SS)),
+    gold_from_mask(img, text_mask("G", font(SERIF, 86), (C, C + 7 * SS)),
                    (0.0, 1.0), lut=GOLD_TEXT, drop=3.0)
 
 
@@ -291,7 +291,7 @@ def emblem(img, scale=EMBLEM_SCALE):
 
 def aperture(img, day="SUN", date="8"):
     d = ImageDraw.Draw(img, "RGBA")
-    x0, y0, x1, y1 = C + 64 * SS, C - 10 * SS, C + 104 * SS, C + 10 * SS
+    x0, y0, x1, y1 = C + 70 * SS, C - 10 * SS, C + 110 * SS, C + 10 * SS
     d.rounded_rectangle([x0 - 2 * SS, y0 - 2 * SS, x1 + 2 * SS, y1 + 2 * SS],
                         radius=2 * SS, fill=(150, 120, 58))
     d.rounded_rectangle([x0, y0, x1, y1], radius=1.5 * SS, fill=(238, 236, 230))
@@ -331,7 +331,7 @@ def name_mask(name, size, y, stroke=0.45):
     return m
 
 
-def engraved_name(img, name=NAME, y=110, size=34):
+def engraved_name(img, name=NAME, y=124, size=34):
     """The owner's name in engraved script, applied gold like everything else.
 
     Great Vibes is a high-contrast face: its hairlines land near a single pixel
@@ -365,7 +365,7 @@ def hands(img, h, m, s):
     ha = ((h % 12) + m / 60) / 12 * 2 * math.pi
     ma = (m + s / 60) / 60 * 2 * math.pi
 
-    for ang, L, wd in ((ha, 80, 9), (ma, 124, 7)):
+    for ang, L, wd in ((ha, 84, 9), (ma, 130, 7)):
         sh = Image.new("L", img.size, 0)
         ImageDraw.Draw(sh).polygon(
             [rot(-wd, 16, ang), rot(0, -L, ang), rot(wd, 16, ang), rot(0, 26, ang)],
@@ -376,7 +376,7 @@ def hands(img, h, m, s):
         img.paste(Image.new("RGB", img.size, (5, 12, 26)), (0, 0), sh)
 
     d = ImageDraw.Draw(img, "RGBA")
-    for ang, L, wd in ((ha, 80, 9), (ma, 124, 7)):
+    for ang, L, wd in ((ha, 84, 9), (ma, 130, 7)):
         d.polygon([rot(-wd, 16, ang), rot(0, -L, ang), rot(0, 26, ang)],
                   fill=(250, 232, 182))
         d.polygon([rot(0, 16, ang), rot(0, -L, ang), rot(wd, 16, ang),
@@ -385,7 +385,7 @@ def hands(img, h, m, s):
                    rot(0, 26, ang)], outline=(92, 70, 28), width=int(1.0 * SS))
 
     sa = s / 60 * 2 * math.pi
-    d.line([rot(0, 30, sa), rot(0, -138, sa)], fill=(238, 198, 120),
+    d.line([rot(0, 30, sa), rot(0, -146, sa)], fill=(238, 198, 120),
            width=int(1.6 * SS))
     d.ellipse([C - 6 * SS, C - 6 * SS, C + 6 * SS, C + 6 * SS],
               fill=(226, 196, 132), outline=(120, 92, 40), width=int(1.1 * SS))

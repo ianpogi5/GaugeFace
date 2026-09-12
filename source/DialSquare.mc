@@ -15,23 +15,23 @@ import Toybox.WatchUi;
 // The band is a *blue* field carrying gold ornament, not a gold slab with dark
 // engraving cut into it. Getting that backwards is also why widening the band
 // once made the dial worse - it widened the wrong material.
-const BLUE_R = 128;
-const RING_IN = 130;
+const BLUE_R = 144;
+const RING_IN = 146;
 const RING_OUT = 196;
 
 // The baked emblem asset, and where bake_emblem.py says it lands on a 416 dial.
-const SQ_EMBLEM_X = 109;
-const SQ_EMBLEM_Y = 110;
+const SQ_EMBLEM_X = 97;
+const SQ_EMBLEM_Y = 99;
 
-const NUM_R = 163;          // RING_IN + 33: numerals and darts share this
+const NUM_R = 171;          // RING_IN + 25: numerals and darts share this
 
-// Cost tunables. The band is now the expensive part: LATTICE_A x LATTICE_R
-// cells at three primitives each. If the face is slow to appear, drop
-// LATTICE_R to 2 before touching RAYS.
+// Cost tunables. The band is the expensive part: LATTICE_A x LATTICE_R cells at
+// two or three primitives each. Two rows across a 50-unit band keeps the cells
+// the same shape they had at three rows across 66.
 const RAYS = 80;
 const BANDS = 3;
 const LATTICE_A = 56;
-const LATTICE_R = 3;
+const LATTICE_R = 2;
 
 class SquareDial {
 
@@ -68,7 +68,7 @@ class SquareDial {
     function drawCentre(dc as Dc) as Void {
         var deep = [8, 22, 58];
         var lift = [46, 86, 148];
-        var bands = [[0, 50, 1.00], [50, 92, 0.72], [92, BLUE_R, 0.44]];
+        var bands = [[0, 56, 1.00], [56, 104, 0.72], [104, BLUE_R, 0.44]];
 
         for (var i = 0; i < RAYS; i++) {
             var a0 = (i.toFloat() / RAYS) * 2 * Math.PI;
@@ -238,7 +238,7 @@ class SquareDial {
         dc.setColor(0xD8B46A, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(p(1.1) < 1 ? 1 : p(1.1));
 
-        var s = polar(88, -0.94);
+        var s = polar(96, -0.94);
         var rr = p(12);
         dc.drawCircle(s[0], s[1], rr);
         for (var i = 0; i < 8; i++) {
@@ -251,13 +251,13 @@ class SquareDial {
         }
         dc.fillCircle(s[0], s[1], p(2.4) < 1 ? 1 : p(2.4));
 
-        var q = polar(88, 0.94);
+        var q = polar(96, 0.94);
         var h = p(11);
         dc.drawRectangle(q[0] - h, q[1] - h, h * 2, h * 2);
         var h2 = (h * 0.55).toNumber();
         dc.drawRectangle(q[0] - h2, q[1] - h2, h2 * 2, h2 * 2);
 
-        var c = polar(66, Math.PI);
+        var c = polar(72, Math.PI);
         dc.drawCircle(c[0], c[1], p(9.5));
         dc.fillCircle(c[0], c[1], p(2.6) < 1 ? 1 : p(2.6));
     }
@@ -265,7 +265,7 @@ class SquareDial {
     // Frame only. The day and date themselves change, so they are drawn on the
     // live layer; see GaugeFaceView.liveSquare.
     function drawApertureFrame(dc as Dc) as Void {
-        var x0 = _cx + p(64);
+        var x0 = _cx + p(70);
         var y0 = _cy - p(10);
         var w = p(40);
         var h = p(20);

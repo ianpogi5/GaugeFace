@@ -30,9 +30,10 @@ The Square dial has had a photo-fidelity pass: the band was widened to the
 reference's proportions, the crosshatch replaced with its quilted lozenge
 lattice, the scattered line-work added (blazing star, small square, point within
 a circle), VI added at the bottom, the limbs thinned and the name retucked.
-A second pass then fixed the band's material: it is a blue field with gold
-ornament, not a gold slab with dark engraving. What is still approximate rather
-than matched: the reference's faceted bezel is part of the physical watch and
+A second pass fixed the band's material — a blue field with gold ornament, not a
+gold slab with dark engraving — and a third narrowed the band to taste. What is
+still approximate rather than matched: the band is narrower than the
+reference's, the reference's faceted bezel is part of the physical watch and
 has no dial equivalent, and the G is DejaVu Serif Bold rather than the
 reference's own letterform.
 
@@ -69,20 +70,27 @@ These apply to both dials unless noted.
   fraternal-supply market.
 - **Hands are split down their length**, lit on one side and shadowed on the
   other. That split is what reads as polished metal.
-- **The band is a blue field carrying gold ornament — not a gold slab.** This
-  note has been wrong twice, so read it carefully. The band was first built as
-  gold with dark engraving cut into it; widening that to the reference's
-  proportions made the dial *worse*, because it was widening the wrong material.
-  The reference's band is the same navy as the centre with a gold lattice laid
-  over it. With the material right, the wide band is correct — roughly 40% of
-  the radius. Do not turn it back into gold, and do not narrow it.
+- **The band is a blue field carrying gold ornament — not a gold slab.** This is
+  the part that matters, and it took three passes to get right. The band was
+  first built as gold with dark engraving cut into it; widening that toward the
+  reference's proportions made the dial *worse*, because it widened the wrong
+  material. The reference's band is the same navy as the centre with a gold
+  lattice laid over it. Do not turn it back into gold.
+- **The band's *width* is a taste call, not a fidelity one.** The reference gives
+  roughly 40% of the radius to the band; this dial gives it 25%
+  (`BLUE_R` 144, band 146–196), because a narrower ring was preferred once the
+  material was right. Earlier notes here asserted first that the band must not
+  dominate and then that it must be wide — both overstated. Change the width
+  freely; just remember `NUM_R`, `LATTICE_R`, the line-work radii, the emblem
+  scale and the name's `y` all key off it.
 - **The band carries a quilted lozenge lattice, not a crosshatch.** Two families
   of chords across the annulus was tried and reads as mesh or mosquito netting.
   The reference is a diaper of discrete cells, each a gold lozenge with a small
   gold diamond in every other eye. **Leave the other cells empty** — filling
   them all turns the band back into a solid mat. In Monkey C each lozenge is a
   gold fill with the local blue inset back inside it: two fills per cell, rather
-  than four lines for an outline.
+  than four lines for an outline. Keep `LATTICE_R` such that cells stay roughly
+  square — two rows across a 50-unit band matches three rows across 66.
 - **The blue field carries fine gold line-work**, not just the emblem: a blazing
   star, a small square, a point within a circle. Without them the field reads
   empty next to the reference.
@@ -132,9 +140,9 @@ units". `DialRenderer` and `GaugeFaceView` each hold `_s = width / 416.0` and a
 private `p(v)` that scales-and-rounds. **Write new geometry in 416 units and put
 it through `p()`** — that is what makes the Epix Pro sizes work.
 
-Square dial constants (`DialSquare.mc`): `BLUE_R` 128, `RING_IN` 130,
-`RING_OUT` 196, `NUM_R` 163, `SQ_EMBLEM_X`/`Y` 109/110, plus the cost tunables
-`RAYS` 80, `BANDS` 3, `LATTICE_A` 56 and `LATTICE_R` 3. Gauge dial constants
+Square dial constants (`DialSquare.mc`): `BLUE_R` 144, `RING_IN` 146,
+`RING_OUT` 196, `NUM_R` 171, `SQ_EMBLEM_X`/`Y` 97/99, plus the cost tunables
+`RAYS` 80, `BANDS` 3, `LATTICE_A` 56 and `LATTICE_R` 2. Gauge dial constants
 (`DialGauge.mc`): `DIAL_INNER` 172, `RING_OUTER` 204, `SUB_OFFSET` 132,
 `SUB_RADIUS` 34, `GA_EMBLEM_X`/`Y` 103/103.
 
@@ -246,8 +254,8 @@ first-build friction:
   `~/.Garmin/ConnectIQ/Devices/`.
 - Full-screen buffered bitmap may fail to allocate. Fallbacks: halve `RAYS`, or
   buffer at half resolution and scale on blit.
-- The static layer is roughly **1,110** primitive calls for the Square dial
-  (the band accounts for 840 of them) and ~700 for the Gauge. Once only, in
+- The static layer is roughly **970** primitive calls for the Square dial (the
+  band accounts for 700 of them) and ~700 for the Gauge. Once only, in
   `onLayout`, but if the face is slow to appear, drop `LATTICE_R` to 2 before
   touching `RAYS` — the band matters more to the likeness than the rays, which
   the emblem largely covers.
@@ -294,5 +302,10 @@ overnight.
   against `strings.xml`, `Rez.*` against the resource declarations, and the
   methods `paintSquare`/`paintGauge` call against what each dial class defines.
   That audit is what caught the shared-emblem and missing-marker mistakes.
+- **Check draw *order* against the Python, not just the constants.** The square's
+  right arm crosses the date aperture, so the frame must be drawn after the
+  emblem. `paintSquare` had them reversed from the first port onwards and no
+  constant check would ever have noticed; only comparing the call order with
+  `render_v3.draw_static` found it.
 - The design has been iterated on hard. If a change makes the dial simpler or
   flatter, that is probably a regression, not a cleanup.
