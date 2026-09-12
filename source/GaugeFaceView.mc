@@ -1,16 +1,28 @@
+import Toybox.Activity;
+import Toybox.ActivityMonitor;
 import Toybox.Application;
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.Math;
+import Toybox.Position;
 import Toybox.System;
 import Toybox.Time;
 import Toybox.Time.Gregorian;
 import Toybox.WatchUi;
+import Toybox.Weather;
+
+// Two dials share this view. Which one is drawn comes from the DialStyle
+// setting; everything style-specific is dispatched from paintStatic, onUpdate
+// and drawAlwaysOn. The two are separate designs, not variations: different
+// static layers, different hand shapes, different complications.
+const STYLE_SQUARE = 0;
+const STYLE_GAUGE = 1;
 
 class GaugeFaceView extends WatchUi.WatchFace {
 
     private var _dial as BufferedBitmap?;
-    private var _render as DialRenderer?;
+    private var _square as SquareDial?;
+    private var _gauge as GaugeDial?;
     private var _script as FontResource?;
     private var _w as Number = 416;
     private var _cx as Number = 208;
@@ -20,8 +32,15 @@ class GaugeFaceView extends WatchUi.WatchFace {
     private var _lowPower as Boolean = false;
     private var _burnIn as Boolean = false;
 
+    private var _style as Number = STYLE_SQUARE;
     private var _showSeconds as Boolean = true;
     private var _name as String = "Singko";
+    private var _left as Number = 0;
+    private var _right as Number = 1;
+    private var _top as Number = 0;
+
+    private var _sunrise as Float = 5.75;
+    private var _sunset as Float = 18.25;
 
     // Nothing on the static layer changes with the clock, so the buffer is
     // only rebuilt when the settings change - see onSettingsChanged.
@@ -47,21 +66,24 @@ class GaugeFaceView extends WatchUi.WatchFace {
             _script = null;     // fall back to a system font for the name
         }
 
+        computeSun();
         buildDial();
     }
 
     function loadSettings() as Void {
         try {
+            _style = Application.Properties.getValue("DialStyle") as Number;
             _showSeconds = Application.Properties.getValue("ShowSeconds") as Boolean;
+            _left = Application.Properties.getValue("LeftDial") as Number;
+            _right = Application.Properties.getValue("RightDial") as Number;
+            _top = Application.Properties.getValue("TopWindow") as Number;
             var n = Application.Properties.getValue("OwnerName") as String?;
-            if (n != null && n.length() > 0) {
-                _name = n;
-            } else {
-                _name = "Singko";
-            }
+            _name = (n != null && n.length() > 0) ? n : "Singko";
         } catch (e) {
+            _style = STYLE_SQUARE;
             _showSeconds = true;
             _name = "Singko";
+            _left = 0; _right = 1; _top = 0;
         }
     }
 
@@ -75,6 +97,10 @@ class GaugeFaceView extends WatchUi.WatchFace {
         return [_cx + p(x * c - y * s), _cy + p(x * s + y * c)];
     }
 
+    private function polar(r as Numeric, a as Float) as Array<Number> {
+        return [_cx + p(r * Math.sin(a)), _cy - p(r * Math.cos(a))];
+    }
+
     // ------------------------------------------------------------ static layer
 
     private function buildDial() as Void {
@@ -86,16 +112,26 @@ class GaugeFaceView extends WatchUi.WatchFace {
         _dial = ref.get() as BufferedBitmap;
         var bdc = _dial.getDc();
         if (bdc has :setAntiAlias) { bdc.setAntiAlias(true); }
-
-        _render = new DialRenderer(_w);
         paintStatic(bdc);
     }
 
     private function paintStatic(dc as Dc) as Void {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
-        var r = _render;
-        if (r == null) { r = new DialRenderer(_w); _render = r; }
+        // drop the renderer for the style we are not drawing; only one dial
+        // is ever live, and this app is tight on memory
+        if (_style == STYLE_GAUGE) {
+            _square = null;
+            paintGauge(dc);
+        } else {
+            _gauge = null;
+            paintSquare(dc);
+        }
+    }
+
+    private function paintSquare(dc as Dc) as Void {
+        var r = _square;
+        if (r == null) { r = new SquareDial(_w); _square = r; }
         r.drawCentre(dc);
         r.drawRing(dc);
         r.drawMarkers(dc);
@@ -104,9 +140,26 @@ class GaugeFaceView extends WatchUi.WatchFace {
         drawName(dc);
     }
 
+    private function paintGauge(dc as Dc) as Void {
+        var r = _gauge;
+        if (r == null) { r = new GaugeDial(_w); _gauge = r; }
+        r.drawSunburst(dc);
+        r.drawRing(dc, _sunrise, _sunset);
+        r.drawSubdial(dc, -SUB_OFFSET, dialLabel(_left));
+        r.drawSubdial(dc, SUB_OFFSET, dialLabel(_right));
+        r.drawEmblem(dc);
+        r.drawWindow(dc, 108, 132, 34);              // date
+        if (_top != 2) { r.drawWindow(dc, -132, -110, 32); }
+        dc.setColor(0xE2C484, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(_cx, _cy + p(54), Graphics.FONT_SYSTEM_MEDIUM, "G",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+    }
+
     // The owner's name, engraved in script below the emblem. It is a setting,
     // so it cannot live in the baked emblem PNG the way the G does; it is drawn
     // here from the custom bitmap font, into the static layer.
+    //
+    // Square dial only - the Gauge dial's field is already full.
     private function drawName(dc as Dc) as Void {
         if (_name.length() == 0) { return; }
         var y = _cy + p(104);
@@ -118,6 +171,54 @@ class GaugeFaceView extends WatchUi.WatchFace {
         dc.setColor(0xF2DCA8, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_cx, y, f, _name,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+    }
+
+    private function dialLabel(which as Number) as String {
+        if (which == 1) { return "STEPS"; }
+        if (which == 2) { return "BODY"; }
+        return "BATTERY";
+    }
+
+    private function dialFraction(which as Number) as Float {
+        if (which == 1) {
+            var info = ActivityMonitor.getInfo();
+            var goal = info.stepGoal;
+            if (goal == null || goal <= 0) { goal = 10000; }
+            var steps = info.steps;
+            if (steps == null) { steps = 0; }
+            var f = steps.toFloat() / goal.toFloat();
+            return f > 1.0 ? 1.0 : f;
+        }
+        if (which == 2) {
+            var mon = ActivityMonitor.getInfo();
+            if (mon has :bodyBattery && mon.bodyBattery != null) {
+                return (mon.bodyBattery as Number) / 100.0;
+            }
+            return 0.0;
+        }
+        return System.getSystemStats().battery / 100.0;
+    }
+
+    // --------------------------------------------------------------- sun times
+
+    private function computeSun() as Void {
+        // Sunrise and sunset for the day, from the last known position. Falls
+        // back to a fixed pair until the watch has a fix. Gauge dial only, and
+        // baked into its static layer.
+        try {
+            var loc = Position.getInfo().position;
+            if (loc != null) {
+                var now = Time.now();
+                var rise = Time.Gregorian.info(
+                    Weather.getSunrise(loc, now), Time.FORMAT_SHORT);
+                var set = Time.Gregorian.info(
+                    Weather.getSunset(loc, now), Time.FORMAT_SHORT);
+                _sunrise = rise.hour + rise.min / 60.0;
+                _sunset = set.hour + set.min / 60.0;
+            }
+        } catch (e) {
+            // leave the defaults in place
+        }
     }
 
     // ------------------------------------------------------------------ update
@@ -138,11 +239,14 @@ class GaugeFaceView extends WatchUi.WatchFace {
             paintStatic(dc);
         }
 
-        drawAperture(dc);
-        drawHands(dc, clock);
+        if (_style == STYLE_GAUGE) {
+            liveGauge(dc, clock);
+        } else {
+            liveSquare(dc, clock);
+        }
     }
 
-    private function drawAperture(dc as Dc) as Void {
+    private function liveSquare(dc as Dc, clock as System.ClockTime) as Void {
         var now = Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
         dc.setColor(0x18181C, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_cx + p(83.5), _cy, Graphics.FONT_SYSTEM_XTINY,
@@ -152,49 +256,130 @@ class GaugeFaceView extends WatchUi.WatchFace {
         dc.drawText(_cx + p(104.5), _cy, Graphics.FONT_SYSTEM_XTINY,
             now.day.format("%d"),
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        handDauphine(dc, hourAngle(clock), 88, 10);
+        handDauphine(dc, minuteAngle(clock), 132, 8);
+        secondHand(dc, clock, 140, 30, 1.6);
+        cap(dc, 7, 2.5);
     }
 
-    // Dauphine hands, split down their length: a lit side and a shadowed side.
-    // That split is what reads as polished metal rather than a painted shape.
-    private function drawHands(dc as Dc, clock as System.ClockTime) as Void {
-        var ha = ((clock.hour % 12) + clock.min / 60.0) / 12.0 * 2 * Math.PI;
-        var ma = (clock.min + clock.sec / 60.0) / 60.0 * 2 * Math.PI;
+    private function liveGauge(dc as Dc, clock as System.ClockTime) as Void {
+        var now = Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
+        dc.setColor(0xECE4D2, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(_cx, _cy + p(120), Graphics.FONT_SYSTEM_XTINY,
+            (now.day_of_week + " " + now.day.format("%d")).toUpper(),
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        hand(dc, ha, 88, 10);
-        hand(dc, ma, 132, 8);
-
-        if (_showSeconds) {
-            var sa = clock.sec / 60.0 * 2 * Math.PI;
-            var t = rot(0, -140, sa);
-            var b = rot(0, 30, sa);
-            dc.setColor(0xEEC678, Graphics.COLOR_TRANSPARENT);
-            dc.setPenWidth(p(1.6) < 1 ? 1 : p(1.6));
-            dc.drawLine(b[0], b[1], t[0], t[1]);
+        if (_top == 0) {
+            var hr = "--";
+            var info = Activity.getActivityInfo();
+            if (info != null && info.currentHeartRate != null) {
+                hr = (info.currentHeartRate as Number).format("%d");
+            }
+            dc.drawText(_cx, _cy - p(121), Graphics.FONT_SYSTEM_XTINY, hr + " bpm",
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        } else if (_top == 1) {
+            var alt = "--";
+            var info = Activity.getActivityInfo();
+            if (info != null && info.altitude != null) {
+                alt = (info.altitude as Float).format("%.0f") + " m";
+            }
+            dc.drawText(_cx, _cy - p(121), Graphics.FONT_SYSTEM_XTINY, alt,
+                Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
 
-        dc.setColor(0xE2C484, Graphics.COLOR_TRANSPARENT);
-        dc.fillCircle(_cx, _cy, p(7));
-        dc.setColor(0x101E38, Graphics.COLOR_TRANSPARENT);
-        dc.fillCircle(_cx, _cy, p(2.5));
+        drawNeedle(dc, -SUB_OFFSET, dialFraction(_left));
+        drawNeedle(dc, SUB_OFFSET, dialFraction(_right));
+        drawCursor(dc, clock);
+
+        handTaper(dc, hourAngle(clock), 92, 9);
+        handTaper(dc, minuteAngle(clock), 148, 7);
+        secondHand(dc, clock, 160, 36, 2.0);
+        cap(dc, 8, 3.5);
     }
 
-    private function hand(dc as Dc, a as Float, len as Number, wd as Number) as Void {
+    private function hourAngle(clock as System.ClockTime) as Float {
+        return ((clock.hour % 12) + clock.min / 60.0) / 12.0 * 2 * Math.PI;
+    }
+
+    private function minuteAngle(clock as System.ClockTime) as Float {
+        return (clock.min + clock.sec / 60.0) / 60.0 * 2 * Math.PI;
+    }
+
+    private function drawNeedle(dc as Dc, ox as Number, frac as Float) as Void {
+        var cx = _cx + p(ox);
+        var a = -2.2 + frac * 4.4;
+        dc.setColor(0xF4E8D2, Graphics.COLOR_TRANSPARENT);
+        dc.setPenWidth(p(2.2) < 1 ? 1 : p(2.2));
+        dc.drawLine(cx, _cy, cx + p(27 * Math.sin(a)), _cy - p(27 * Math.cos(a)));
+        dc.setColor(0xE2C484, Graphics.COLOR_TRANSPARENT);
+        dc.fillCircle(cx, _cy, p(3));
+    }
+
+    // The brass cursor on the rim: position in the twenty-four hour day.
+    private function drawCursor(dc as Dc, clock as System.ClockTime) as Void {
+        var a = ((clock.hour + clock.min / 60.0) / 24.0) * 2 * Math.PI;
+        var tip = polar(207, a);
+        var base = polar(192, a);
+        var dx = tip[0] - _cx;
+        var dy = tip[1] - _cy;
+        var l = Math.sqrt(dx * dx + dy * dy);
+        if (l < 1.0) { l = 1.0; }
+        var nx = (-dy / l * p(8)).toNumber();
+        var ny = (dx / l * p(8)).toNumber();
+        dc.setColor(0xFFF0C8, Graphics.COLOR_TRANSPARENT);
+        dc.fillPolygon([[base[0] + nx, base[1] + ny], tip, [base[0] - nx, base[1] - ny]]);
+    }
+
+    // Both hand shapes are split down their length, lit on one side and
+    // shadowed on the other. That split is what reads as polished metal.
+    // The dials use different outlines: a taper on the Gauge, a dauphine kite
+    // on the Square.
+    private function handTaper(dc as Dc, a as Float, len as Number, wd as Number) as Void {
+        dc.setColor(0xFAEED6, Graphics.COLOR_TRANSPARENT);
+        dc.fillPolygon([
+            rot(-wd, 20, a), rot(-wd * 0.45, -len, a), rot(0, -len, a), rot(0, 20, a)
+        ]);
+        dc.setColor(0xB09E80, Graphics.COLOR_TRANSPARENT);
+        dc.fillPolygon([
+            rot(0, 20, a), rot(0, -len, a), rot(wd * 0.45, -len, a), rot(wd, 20, a)
+        ]);
+    }
+
+    private function handDauphine(dc as Dc, a as Float, len as Number, wd as Number) as Void {
         var tip = rot(0, -len, a);
         var tail = rot(0, 26, a);
-        var left = rot(-wd, 16, a);
-        var right = rot(wd, 16, a);
-
         dc.setColor(0xFAE8B6, Graphics.COLOR_TRANSPARENT);
-        dc.fillPolygon([left, tip, tail]);
+        dc.fillPolygon([rot(-wd, 16, a), tip, tail]);
         dc.setColor(0xB08A3E, Graphics.COLOR_TRANSPARENT);
-        dc.fillPolygon([tip, right, tail]);
+        dc.fillPolygon([tip, rot(wd, 16, a), tail]);
+    }
+
+    private function secondHand(dc as Dc, clock as System.ClockTime,
+                                len as Number, tail as Number,
+                                pen as Float) as Void {
+        if (!_showSeconds) { return; }
+        var sa = clock.sec / 60.0 * 2 * Math.PI;
+        var t = rot(0, -len, sa);
+        var b = rot(0, tail, sa);
+        dc.setColor(0xEEC678, Graphics.COLOR_TRANSPARENT);
+        dc.setPenWidth(p(pen) < 1 ? 1 : p(pen));
+        dc.drawLine(b[0], b[1], t[0], t[1]);
+    }
+
+    private function cap(dc as Dc, outer as Numeric, inner as Numeric) as Void {
+        dc.setColor(0xE2C484, Graphics.COLOR_TRANSPARENT);
+        dc.fillCircle(_cx, _cy, p(outer));
+        dc.setColor(0x101E38, Graphics.COLOR_TRANSPARENT);
+        dc.fillCircle(_cx, _cy, p(inner));
     }
 
     // ---------------------------------------------------------------- always-on
 
-    // A separate, much darker drawing. The lit blue dial cannot pass the
-    // always-on luminance budget, so this is thin gold on black with a
-    // per-minute shift; over 25 minutes it walks a 5 x 5 grid.
+    // A separate, much darker drawing. Neither lit dial can pass the always-on
+    // luminance budget, so this is thin gold on black with a per-minute shift;
+    // over 25 minutes it walks a 5 x 5 grid. The Gauge dial reduces to its
+    // twenty-four hours, the Square dial to twelve.
     private function drawAlwaysOn(dc as Dc, clock as System.ClockTime) as Void {
         var ox = 0;
         var oy = 0;
@@ -208,32 +393,46 @@ class GaugeFaceView extends WatchUi.WatchFace {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
 
+        var gauge = (_style == STYLE_GAUGE);
+        var ticks = gauge ? 24 : 12;
+        var major = gauge ? 6 : 3;
+
         dc.setColor(0x5C4A22, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(p(2) < 1 ? 1 : p(2));
-        for (var h = 0; h < 12; h++) {
-            var a = (h.toFloat() / 12) * 2 * Math.PI;
-            var inner = (h % 3 == 0) ? 176 : 186;
+        for (var h = 0; h < ticks; h++) {
+            var a = (h.toFloat() / ticks) * 2 * Math.PI;
+            var inner = (h % major == 0) ? (gauge ? 184 : 176) : (gauge ? 191 : 186);
+            var outer = gauge ? 200 : 196;
             dc.drawLine(
-                cx + p(196 * Math.sin(a)), cy - p(196 * Math.cos(a)),
+                cx + p(outer * Math.sin(a)), cy - p(outer * Math.cos(a)),
                 cx + p(inner * Math.sin(a)), cy - p(inner * Math.cos(a)));
         }
 
-        // emblem reduced to an outline
+        // emblem reduced to an outline, at whichever geometry this dial uses
+        var sc = gauge ? 1.0 : 1.06;
         dc.setColor(0x6B5628, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(p(1.8) < 1 ? 1 : p(1.8));
-        limb(dc, cx, cy, 0, -93, -83, 61);
-        limb(dc, cx, cy, 0, -93, 83, 61);
-        limb(dc, cx, cy, 0, 102, -102, -2);
-        limb(dc, cx, cy, 0, 102, 102, -2);
-        dc.drawCircle(cx, cy - p(93), p(12));
+        limb(dc, cx, cy, 0, -88 * sc, -78 * sc, 58 * sc);
+        limb(dc, cx, cy, 0, -88 * sc, 78 * sc, 58 * sc);
+        limb(dc, cx, cy, 0, 96 * sc, -96 * sc, -2 * sc);
+        limb(dc, cx, cy, 0, 96 * sc, 96 * sc, -2 * sc);
+        dc.drawCircle(cx, cy - p(88 * sc), p(12));
 
-        var ha = ((clock.hour % 12) + clock.min / 60.0) / 12.0 * 2 * Math.PI;
-        var ma = (clock.min + clock.sec / 60.0) / 60.0 * 2 * Math.PI;
+        var ha = hourAngle(clock);
+        var ma = minuteAngle(clock);
         dc.setColor(0x9A9384, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(p(5) < 1 ? 1 : p(5));
-        dc.drawLine(cx, cy, cx + p(88 * Math.sin(ha)), cy - p(88 * Math.cos(ha)));
+        var hl = gauge ? 92 : 88;
+        var ml = gauge ? 148 : 132;
+        dc.drawLine(cx, cy, cx + p(hl * Math.sin(ha)), cy - p(hl * Math.cos(ha)));
         dc.setPenWidth(p(3.5) < 1 ? 1 : p(3.5));
-        dc.drawLine(cx, cy, cx + p(132 * Math.sin(ma)), cy - p(132 * Math.cos(ma)));
+        dc.drawLine(cx, cy, cx + p(ml * Math.sin(ma)), cy - p(ml * Math.cos(ma)));
+
+        if (gauge) {
+            var ca = ((clock.hour + clock.min / 60.0) / 24.0) * 2 * Math.PI;
+            dc.setColor(0xC4A258, Graphics.COLOR_TRANSPARENT);
+            dc.fillCircle(cx + p(198 * Math.sin(ca)), cy - p(198 * Math.cos(ca)), p(5));
+        }
     }
 
     private function limb(dc as Dc, cx as Number, cy as Number,
@@ -254,6 +453,6 @@ class GaugeFaceView extends WatchUi.WatchFace {
 
     function onSettingsChanged() as Void {
         loadSettings();
-        buildDial();     // the name is baked into the static layer
+        buildDial();     // style, name and subdial labels are all baked in
     }
 }

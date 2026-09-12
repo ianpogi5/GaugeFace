@@ -3,7 +3,8 @@ import Toybox.Lang;
 import Toybox.Math;
 import Toybox.WatchUi;
 
-// Everything on this layer is fixed for as long as the settings are: the rayed
+// The Square and Compasses dial. Everything on this layer is fixed for as long
+// as the settings are: the rayed
 // blue centre, the guilloche gold chapter ring, the engraved numerals and
 // darts, the applied emblem and the day/date aperture frame. It is rendered
 // once into a buffered bitmap and blitted every second, which is what makes
@@ -17,8 +18,8 @@ const RING_IN = 150;
 const RING_OUT = 198;
 
 // The baked emblem asset, and where bake_emblem.py says it lands on a 416 dial.
-const EMBLEM_X = 98;
-const EMBLEM_Y = 100;
+const SQ_EMBLEM_X = 98;
+const SQ_EMBLEM_Y = 100;
 
 // Tunables if the static layer is too slow to appear or the buffer won't fit.
 // RAYS x BANDS fillPolygon calls dominate the cost; halving RAYS is the first
@@ -27,7 +28,7 @@ const RAYS = 120;
 const BANDS = 3;
 const LATTICE = 90;
 
-class DialRenderer {
+class SquareDial {
 
     private var _s as Float;
     private var _cx as Number;
@@ -201,8 +202,8 @@ class DialRenderer {
     }
 
     function drawEmblem(dc as Dc) as Void {
-        var bmp = WatchUi.loadResource(Rez.Drawables.Emblem) as BitmapResource;
+        var bmp = WatchUi.loadResource(Rez.Drawables.EmblemSquare) as BitmapResource;
         // Baked against a 416 dial; bake_emblem.py prints and checks this.
-        dc.drawBitmap(_cx + p(EMBLEM_X - 208), _cy + p(EMBLEM_Y - 208), bmp);
+        dc.drawBitmap(_cx + p(SQ_EMBLEM_X - 208), _cy + p(SQ_EMBLEM_Y - 208), bmp);
     }
 }

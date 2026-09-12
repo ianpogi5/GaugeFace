@@ -1,7 +1,21 @@
 <strings>
-    <string id="AppName">Square and Compasses</string>
+    <string id="AppName">Masonic Dials</string>
+    <string id="StyleTitle">Dial</string>
+    <string id="StylePrompt">Two separate designs. Changing this redraws the whole dial.</string>
+    <string id="OptSquare">Square and Compasses</string>
+    <string id="OptGauge">Twenty-Four Inch Gauge</string>
+    <string id="NameTitle">Name on the dial</string>
+    <string id="NamePrompt">Engraved in script below the emblem. Square and Compasses dial only; about twelve characters fit.</string>
     <string id="SecondsTitle">Second hand</string>
     <string id="SecondsPrompt">Shown only while the watch is awake.</string>
-    <string id="NameTitle">Name on the dial</string>
-    <string id="NamePrompt">Engraved in script below the emblem. Letters, digits and spaces; about twelve characters fit.</string>
+    <string id="GaugeOnlyPrompt">Twenty-Four Inch Gauge dial only.</string>
+    <string id="LeftTitle">Left subdial</string>
+    <string id="RightTitle">Right subdial</string>
+    <string id="TopTitle">Top window</string>
+    <string id="OptBattery">Battery</string>
+    <string id="OptSteps">Steps</string>
+    <string id="OptBody">Body battery</string>
+    <string id="OptHr">Heart rate</string>
+    <string id="OptAlt">Altitude</string>
+    <string id="OptNone">Empty</string>
 </strings>

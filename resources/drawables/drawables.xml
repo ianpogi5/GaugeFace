@@ -1,4 +1,7 @@
 <drawables>
     <bitmap id="LauncherIcon" filename="launcher_icon.png" />
-    <bitmap id="Emblem" filename="emblem.png" />
+    <!-- One emblem per dial style; see bake_emblem.py. The Gauge asset has no
+         G baked in, because that dial draws its own as text below centre. -->
+    <bitmap id="EmblemSquare" filename="emblem_square.png" />
+    <bitmap id="EmblemGauge" filename="emblem_gauge.png" />
 </drawables>

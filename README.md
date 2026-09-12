@@ -1,16 +1,27 @@
-# Square and Compasses — Garmin watch face
+# Masonic Dials — Garmin watch face
 
-A navy engine-turned dial with a guilloche gold chapter ring, an applied square
-and compasses around an ornate G, a day/date aperture at three, and your name
-engraved in script below the emblem. Built for the Epix Gen 2 (416 × 416 AMOLED)
-and the Epix Pro sizes.
+Two dials in one watch face, chosen in the settings. Built for the Epix Gen 2
+(416 × 416 AMOLED) and the Epix Pro sizes.
 
-![the dial with three different names](docs/preview.png)
+![the two dials side by side](docs/preview.png)
+
+**Square and Compasses** (default) — navy engine-turned centre, guilloche gold
+chapter ring, applied square and compasses around an ornate G, day/date aperture
+at three, and your name engraved in script below the emblem.
+
+**Twenty-Four Inch Gauge** — the outer ring is a rule marked to eighths across a
+24-hour rotation, divided into three arcs of eight for refreshment, labour and
+service, with sunrise and sunset marked and the night hours shaded. The hands
+read normal 12-hour time; the brass cursor on the rim shows position in the
+24-hour day. Two subdials and a top window.
 
 ## The name on the dial
 
-`OwnerName` is a watch setting — it defaults to **Singko**. About twelve
-characters fit before the script starts crowding the square.
+![the same dial with three different names](docs/names.png)
+
+`OwnerName` is a watch setting — it defaults to **Singko**, and applies to the
+Square and Compasses dial. About twelve characters fit before the script starts
+crowding the square.
 
 Connect IQ has no cursive system font, so the name is drawn from a custom bitmap
 font baked out of [Great Vibes](https://fonts.google.com/specimen/Great+Vibes)
@@ -23,30 +34,41 @@ To preview a name without building anything:
 python3 render_v3.py Amanda      # writes out/v3_full.png
 ```
 
+## Settings
+
+| setting | dial | options |
+| --- | --- | --- |
+| Dial | both | Square and Compasses, Twenty-Four Inch Gauge |
+| Name on the dial | Square | up to 16 characters |
+| Second hand | both | on / off |
+| Left subdial, Right subdial | Gauge | battery, steps, body battery |
+| Top window | Gauge | heart rate, altitude, empty |
+
+Connect IQ can't hide settings conditionally, so the dial-specific ones stay
+visible on both and say which dial they affect.
+
 ## How it's put together
 
-The dial is expensive to draw and only changes when the settings do, so it's
-rendered once into a `BufferedBitmap` and blitted each second. Only the hands
-and the day/date text are drawn per frame.
+Each dial is expensive to draw and only changes when the settings do, so the
+active one is rendered once into a `BufferedBitmap` and blitted each second.
+Only the hands, the complications and the date text are drawn per frame.
 
-- `source/DialRenderer.mc` — the static layer: rayed blue centre, gold band with
-  its engine-turned lattice and beading, engraved numerals and darts, the
-  aperture frame, the emblem.
-- `source/GaugeFaceView.mc` — the live layer, the engraved name, and a separate
-  always-on drawing.
-- `resources/drawables/emblem.png` — the square, compasses and G, baked with
-  real gradients because Monkey C primitives can't produce them.
-- `resources/fonts/` — the script atlas.
-- `render_v3.py`, `bake_emblem.py`, `bake_font.py` — the Python renderers used
-  to design the dial and produce the assets.
+- `source/DialSquare.mc` — the Square dial's static layer.
+- `source/DialGauge.mc` — the Gauge dial's static layer.
+- `source/GaugeFaceView.mc` — holds the style and dispatches the static build,
+  the live layer and the always-on drawing.
+- `resources/drawables/emblem_square.png`, `emblem_gauge.png` — the applied
+  emblems, baked with real gradients because Monkey C primitives can't produce
+  them. Separate assets: the Gauge emblem has heavier limbs and no G, since that
+  dial draws its own.
+- `resources/fonts/` — the script atlas for the name.
+- `render_v3.py` (Square), `render_v2.py` (Gauge), `bake_emblem.py`,
+  `bake_font.py` — the Python renderers used to design the dials and produce the
+  assets.
 
 Always-on is a separate, much darker drawing — thin gold on black, no second
-hand, no name, shifted a few pixels each minute. A lit blue dial can't pass the
+hand, no name, shifted a few pixels each minute. A lit dial can't pass the
 always-on budget, so the two states deliberately look different.
-
-`render_v2.py` is an earlier "Twenty-Four Inch Gauge" design that this one
-replaced. It stays because the current renderers still import its shared
-gold-and-geometry helpers.
 
 ## Installing on your Epix Gen 2
 
@@ -81,7 +103,7 @@ Apply. If it doesn't appear, restart the watch.
 
 **6. Settings.** Sideloaded apps don't show settings in the Garmin Connect phone
 app — use the Connect IQ desktop simulator, or upload the app as a private app
-if you want to set the name from your phone.
+if you want to switch dials or set the name from your phone.
 
 ## Things to expect on first build
 
@@ -94,13 +116,25 @@ Budget an hour for the usual friction:
   falls back to a system font and stops being cursive.
 - **Device IDs.** Check the folder names under `~/.Garmin/ConnectIQ/Devices/`
   and reconcile `manifest.xml` against them.
-- **Memory.** If the full-screen buffer fails to allocate, halve `RAYS` in
-  `DialRenderer.mc`, or render the buffer at half resolution and scale on blit.
-- **Startup cost.** The static layer is roughly 900 primitive calls, once, in
-  `onLayout`. `RAYS` and `LATTICE` are the levers if the face is slow to appear.
+- **Memory.** Two dials means two static layers of code and two emblem assets,
+  though only one of each is live at a time. If the full-screen buffer fails to
+  allocate, halve `RAYS` in `DialSquare.mc` or the sunburst wedge count in
+  `DialGauge.mc`, or render the buffer at half resolution and scale on blit.
+- **Sunrise and sunset** (Gauge dial) need a position fix; until the watch has
+  one they fall back to 05:45 and 18:15.
+- **Body battery** is guarded with a `has` check and will read zero where it
+  isn't exposed.
+
+## Known gap
+
+The Square and Compasses dial doesn't closely match the reference watch it was
+drawn from: the gold band is narrower, the ring pattern is a single crosshatch
+rather than the reference's dense lozenge-and-✕ grid, the small scattered
+symbols are missing, the limbs are heavier and there's no VI at the bottom. Open
+work, not a settled design.
 
 ## On the artwork
 
-The emblem is a generic square and compasses built from scratch. Grand Lodge
+The emblems are generic squares and compasses built from scratch. Grand Lodge
 seals and lodge crests are protected marks — if you want one, supply the asset
 and add it as another bitmap drawable.
