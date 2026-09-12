@@ -109,23 +109,30 @@ def blue_centre():
 
 # ------------------------------------------------------------- guilloche ring
 
-# The band is divided into cells; every cell carries a lozenge outline and,
-# alternating, either a bright diamond or a dark saltire. That quilted diaper
-# is what the photo's band actually is - a single crosshatch of chords, which
-# is what was here before, reads as mesh rather than engraving.
+# The band is a *blue* field carrying gold ornament - not a gold slab with dark
+# engraving cut into it, which is what was here before and read as a brass
+# bezel. Getting this backwards was also why widening the band made the dial
+# worse: it was widening the wrong material.
 LATTICE_A = 56        # cells around
 LATTICE_R = 3         # rows across the band
 
 
-def gold_ring(img):
-    d = ImageDraw.Draw(img, "RGBA")
-
-    # annulus base, brighter at the top where the light sits
+def ring_field():
+    """Navy base for the band, a shade deeper than the centre."""
     y, x = np.mgrid[0:W, 0:W]
     dx, dy = (x - C) / SS, (y - C) / SS
-    t = np.clip((dy / RING_OUT + 1) / 2, 0, 1)
-    base = (GOLD[(np.clip(0.30 + t * 0.42, 0, 1) * 255).astype(int)]
-            ).astype(np.uint8)
+    r = np.hypot(dx, dy)
+    deep = np.array([8, 20, 50], dtype=float)
+    lift = np.array([22, 48, 96], dtype=float)
+    t = np.clip((1.0 - dy / RING_OUT) / 2.0, 0, 1) * 0.7 + 0.15
+    t = t * np.clip(1.18 - r / RING_OUT * 0.5, 0.5, 1.0)
+    img = deep[None, None, :] + (lift - deep)[None, None, :] * t[:, :, None]
+    return Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), "RGB")
+
+
+def ornate_ring(img):
+    d = ImageDraw.Draw(img, "RGBA")
+
     ann = Image.new("L", img.size, 0)
     ImageDraw.Draw(ann).ellipse(
         [C - RING_OUT * SS, C - RING_OUT * SS, C + RING_OUT * SS, C + RING_OUT * SS],
@@ -133,12 +140,12 @@ def gold_ring(img):
     ImageDraw.Draw(ann).ellipse(
         [C - RING_IN * SS, C - RING_IN * SS, C + RING_IN * SS, C + RING_IN * SS],
         fill=0)
-    img.paste(Image.fromarray(base, "RGB"), (0, 0), ann)
+    img.paste(ring_field(), (0, 0), ann)
 
     field_in, field_out = RING_IN + 9, RING_OUT - 11
     step = (field_out - field_in) / LATTICE_R
-    dark = (62, 45, 18, 225)
-    lite = (244, 226, 176, 225)
+    gold = (206, 170, 96, 255)
+    bright = (244, 224, 168, 255)
 
     for row in range(LATTICE_R):
         r0 = field_in + row * step
@@ -149,37 +156,29 @@ def gold_ring(img):
             a1 = (k + 1) / LATTICE_A * 2 * math.pi
             am = (a0 + a1) / 2
 
-            # lozenge: the cell's four edge midpoints
+            # gold lozenge over the blue, cell by cell
             d.polygon([pol(rm, a0), pol(r1, am), pol(rm, a1), pol(r0, am)],
-                      outline=dark, width=int(0.9 * SS))
+                      outline=gold, width=int(1.0 * SS))
 
+            # a small gold diamond in every other eye; the rest stay blue, or
+            # the band turns into a solid mat again
             if (k + row) % 2 == 0:
-                # bright diamond in the eye
-                f = 0.24
+                f = 0.26
                 d.polygon([pol(rm, a0 + (am - a0) * (1 - f)),
                            pol(rm + (r1 - rm) * f, am),
                            pol(rm, a1 - (a1 - am) * (1 - f)),
-                           pol(rm - (rm - r0) * f, am)], fill=lite)
-            else:
-                # dark saltire in the eye
-                d.line([pol(r0 + step * 0.28, a0 + (a1 - a0) * 0.28),
-                        pol(r1 - step * 0.28, a1 - (a1 - a0) * 0.28)],
-                       fill=dark, width=int(0.9 * SS))
-                d.line([pol(r0 + step * 0.28, a1 - (a1 - a0) * 0.28),
-                        pol(r1 - step * 0.28, a0 + (a1 - a0) * 0.28)],
-                       fill=dark, width=int(0.9 * SS))
+                           pol(rm - (rm - r0) * f, am)], fill=bright)
 
-    # fine radial teeth on the inner border, polished bead on the outer
-    for k in range(LATTICE_A * 3):
-        a = k / (LATTICE_A * 3) * 2 * math.pi
-        d.line([pol(RING_IN + 1.5, a), pol(field_in - 1.0, a)],
-               fill=(96, 72, 30, 200), width=int(0.8 * SS))
-    for k in range(132):
-        a = k / 132 * 2 * math.pi
+    # fine gold teeth on the inner edge, bead on the outer
+    for k in range(LATTICE_A * 2):
+        a = k / (LATTICE_A * 2) * 2 * math.pi
+        d.line([pol(RING_IN + 2.0, a), pol(field_in - 1.0, a)],
+               fill=(180, 146, 80, 220), width=int(0.9 * SS))
+    for k in range(112):
+        a = k / 112 * 2 * math.pi
         p = pol(RING_OUT - 5, a)
         br = 1.5 * SS
-        d.ellipse([p[0] - br, p[1] - br, p[0] + br, p[1] + br],
-                  fill=(234, 210, 156, 255))
+        d.ellipse([p[0] - br, p[1] - br, p[0] + br, p[1] + br], fill=bright)
 
     for rad, wid, col in ((RING_IN, 2.4, (214, 178, 100)),
                           (RING_OUT, 3.0, (222, 188, 114)),
@@ -187,8 +186,6 @@ def gold_ring(img):
         d.ellipse([C - rad * SS, C - rad * SS, C + rad * SS, C + rad * SS],
                   outline=col, width=int(wid * SS))
 
-
-# -------------------------------------------------------------------- markers
 
 NUM_R = RING_IN + 33        # numerals and darts share the band's mid-radius
 
@@ -203,20 +200,15 @@ def markers(img):
         n = (-(p2[1] - p1[1]), p2[0] - p1[0])
         ln = math.hypot(*n) or 1
         nx, ny = n[0] / ln * 4.0 * SS, n[1] / ln * 4.0 * SS
-        # engraved: light lower lip, dark shape over it
-        d.polygon([(p1[0] + nx + 1.2 * SS, p1[1] + ny + 1.2 * SS),
-                   (p2[0] + 1.2 * SS, p2[1] + 1.2 * SS),
-                   (p1[0] - nx + 1.2 * SS, p1[1] - ny + 1.2 * SS)],
-                  fill=(238, 214, 158, 200))
         d.polygon([(p1[0] + nx, p1[1] + ny), p2, (p1[0] - nx, p1[1] - ny)],
-                  fill=(58, 42, 16, 235))
+                  fill=(244, 224, 168, 255), outline=(120, 92, 40), width=int(SS))
 
     f = font(SERIF, 30)
     for label, a in (("XII", 0.0), ("VI", math.pi)):
         px, py = pol(NUM_R, a)
         d.text((px + 1.3 * SS, py + 1.3 * SS), label, font=f,
-               fill=(240, 218, 162, 210), anchor="mm")
-        d.text((px, py), label, font=f, fill=(54, 38, 14, 240), anchor="mm")
+               fill=(10, 22, 46, 220), anchor="mm")
+        d.text((px, py), label, font=f, fill=(246, 228, 176, 255), anchor="mm")
 
 
 # The photo scatters fine gold line-work in the blue field between the limbs:
@@ -359,7 +351,7 @@ def draw_static(name=NAME):
         fill=255)
     img.paste(blue_centre(), (0, 0), disc)
 
-    gold_ring(img)
+    ornate_ring(img)
     markers(img)
     symbols(img)
     emblem(img)

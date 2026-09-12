@@ -30,9 +30,11 @@ The Square dial has had a photo-fidelity pass: the band was widened to the
 reference's proportions, the crosshatch replaced with its quilted lozenge
 lattice, the scattered line-work added (blazing star, small square, point within
 a circle), VI added at the bottom, the limbs thinned and the name retucked.
-What is still approximate rather than matched: the reference's faceted bezel is
-part of the physical watch and has no dial equivalent, and the G is DejaVu Serif
-Bold rather than the reference's own letterform.
+A second pass then fixed the band's material: it is a blue field with gold
+ornament, not a gold slab with dark engraving. What is still approximate rather
+than matched: the reference's faceted bezel is part of the physical watch and
+has no dial equivalent, and the G is DejaVu Serif Bold rather than the
+reference's own letterform.
 
 ## Design decisions worth not relitigating
 
@@ -55,9 +57,11 @@ These apply to both dials unless noted.
 - **The G is baked into the emblem PNG, not drawn on device.** It needs the same
   gradient metal as the limbs, and Monkey C primitives cannot produce that. It
   is static, so baking costs nothing.
-- **Numerals and hour darts are engraved *into* the gold**, not laid on top: a
-  light lower lip with the dark shape over it. Gold-on-gold was illegible — the
-  first pass had an invisible `XII`.
+- **Marker treatment follows what they sit on.** On the Square dial's blue band
+  the numerals and darts are gold with a dark relief behind them. They were
+  previously engraved dark-into-gold, which was right when the band was a gold
+  slab and would vanish now. The Gauge dial's gold-on-gold first pass had an
+  invisible `XII`, which is what started this rule.
 - **Text gets its own gold ramp (`GOLD_TEXT`).** The full `GOLD` ramp runs dark
   at both ends, which buries small glyphs; the first `G` and the first engraved
   name both disappeared into the dial.
@@ -65,16 +69,19 @@ These apply to both dials unless noted.
   fraternal-supply market.
 - **Hands are split down their length**, lit on one side and shadowed on the
   other. That split is what reads as polished metal.
-- **The gold band is wide, and that is correct.** An earlier note here said the
-  opposite — that the band must not dominate — which was wrong, and narrowing it
-  was the single biggest reason the dial did not read as the reference watch.
-  The reference gives roughly 40% of the radius to the band. Do not narrow it
-  again.
+- **The band is a blue field carrying gold ornament — not a gold slab.** This
+  note has been wrong twice, so read it carefully. The band was first built as
+  gold with dark engraving cut into it; widening that to the reference's
+  proportions made the dial *worse*, because it was widening the wrong material.
+  The reference's band is the same navy as the centre with a gold lattice laid
+  over it. With the material right, the wide band is correct — roughly 40% of
+  the radius. Do not turn it back into gold, and do not narrow it.
 - **The band carries a quilted lozenge lattice, not a crosshatch.** Two families
   of chords across the annulus was tried and reads as mesh or mosquito netting.
-  The reference is a diaper of discrete cells, each with a lozenge outline and
-  alternating bright diamond or dark saltire. In Monkey C each lozenge is a dark
-  fill with the local band colour inset inside it — two fills per cell, rather
+  The reference is a diaper of discrete cells, each a gold lozenge with a small
+  gold diamond in every other eye. **Leave the other cells empty** — filling
+  them all turns the band back into a solid mat. In Monkey C each lozenge is a
+  gold fill with the local blue inset back inside it: two fills per cell, rather
   than four lines for an outline.
 - **The blue field carries fine gold line-work**, not just the emblem: a blazing
   star, a small square, a point within a circle. Without them the field reads
@@ -92,8 +99,8 @@ work is only the hands and the day/date text.
 - `source/GaugeFaceApp.mc` — `AppBase`; holds the view so `onSettingsChanged`
   can forward to it.
 - `source/DialSquare.mc` — class `SquareDial`: `drawCentre` (rayed blue),
-  `drawRing` (band, quilted lattice, teeth, beads), `drawMarkers` (engraved
-  darts, `XII` and `VI`), `drawSymbols` (blazing star, small square, point
+  `drawRing` (blue band, gold quilted lattice, teeth, beads), `drawMarkers`
+  (gold darts, `XII` and `VI`), `drawSymbols` (blazing star, small square, point
   within a circle), `drawApertureFrame`, `drawEmblem`.
 - `source/DialGauge.mc` — class `GaugeDial`: `drawSunburst`, `drawRing` (the
   24-hour rule, night shading, division labels, sun markers), `drawSubdial`,
@@ -239,8 +246,8 @@ first-build friction:
   `~/.Garmin/ConnectIQ/Devices/`.
 - Full-screen buffered bitmap may fail to allocate. Fallbacks: halve `RAYS`, or
   buffer at half resolution and scale on blit.
-- The static layer is roughly **1,180** primitive calls for the Square dial
-  (the quilted band is 688 of them) and ~700 for the Gauge. Once only, in
+- The static layer is roughly **1,110** primitive calls for the Square dial
+  (the band accounts for 840 of them) and ~700 for the Gauge. Once only, in
   `onLayout`, but if the face is slow to appear, drop `LATTICE_R` to 2 before
   touching `RAYS` — the band matters more to the likeness than the rays, which
   the emblem largely covers.

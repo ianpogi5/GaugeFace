@@ -12,9 +12,9 @@ import Toybox.WatchUi;
 // Geometry is in 416-dial units and goes through p(); that is what makes the
 // other Epix sizes work. See CLAUDE.md.
 
-// The reference gives roughly 60% of the dial to the blue centre and the rest
-// to the band. Earlier passes had the band far too narrow and the dial read as
-// a blue face with gold trim rather than an engraved bezel.
+// The band is a *blue* field carrying gold ornament, not a gold slab with dark
+// engraving cut into it. Getting that backwards is also why widening the band
+// once made the dial worse - it widened the wrong material.
 const BLUE_R = 128;
 const RING_IN = 130;
 const RING_OUT = 196;
@@ -87,30 +87,39 @@ class SquareDial {
         }
     }
 
-    private function bandGold(th as Float) as Number {
-        // light sits at the top of the dial
-        var t = 0.30 + 0.42 * ((1.0 - Math.cos(th)) / 2.0);
-        return mix([150, 116, 52], [246, 226, 172], t);
+    // The band's navy, a shade deeper than the centre. One colour per wedge is
+    // all a fillPolygon can carry, so the radial falloff comes from splitting
+    // the annulus into two sub-bands.
+    private function ringBlue(r as Numeric, th as Float) as Number {
+        var t = (1.0 + r * Math.cos(th) / RING_OUT) / 2.0;
+        if (t < 0.0) { t = 0.0; }
+        if (t > 1.0) { t = 1.0; }
+        t = t * 0.7 + 0.15;
+        var fall = 1.18 - r / RING_OUT.toFloat() * 0.5;
+        if (fall < 0.5) { fall = 0.5; }
+        if (fall > 1.0) { fall = 1.0; }
+        return mix([8, 20, 50], [22, 48, 96], t * fall);
     }
 
-    // The band is divided into cells; every cell carries a lozenge and,
-    // alternating, either a bright diamond or a dark saltire. That quilted
-    // diaper is what the reference band actually is - a single crosshatch of
-    // chords reads as mesh rather than engraving.
-    //
-    // Each lozenge is a dark fill with the local band colour inset inside it,
-    // which leaves a one-pixel engraved outline for two fills instead of four
-    // lines.
+    // Blue field, then a gold lozenge lattice over it with a small gold diamond
+    // in every other eye. The empty cells matter: filling them all turns the
+    // band back into a solid mat.
     function drawRing(dc as Dc) as Void {
         var N = 96;
-        for (var i = 0; i < N; i++) {
-            var a0 = (i.toFloat() / N) * 2 * Math.PI;
-            var a1 = ((i + 1).toFloat() / N) * 2 * Math.PI;
-            dc.setColor(bandGold((a0 + a1) / 2.0), Graphics.COLOR_TRANSPARENT);
-            dc.fillPolygon([
-                polar(RING_IN, a0), polar(RING_OUT, a0),
-                polar(RING_OUT, a1), polar(RING_IN, a1)
-            ]);
+        var rmid = (RING_IN + RING_OUT) / 2;
+        var sub = [[RING_IN, rmid], [rmid, RING_OUT]];
+        for (var b = 0; b < sub.size(); b++) {
+            var q0 = sub[b][0];
+            var q1 = sub[b][1];
+            var qm = (q0 + q1) / 2;
+            for (var i = 0; i < N; i++) {
+                var a0 = (i.toFloat() / N) * 2 * Math.PI;
+                var a1 = ((i + 1).toFloat() / N) * 2 * Math.PI;
+                dc.setColor(ringBlue(qm, (a0 + a1) / 2.0), Graphics.COLOR_TRANSPARENT);
+                dc.fillPolygon([
+                    polar(q0, a0), polar(q1, a0), polar(q1, a1), polar(q0, a1)
+                ]);
+            }
         }
 
         var fieldIn = RING_IN + 9;
@@ -127,14 +136,16 @@ class SquareDial {
                 var a1 = ((k + 1).toFloat() / LATTICE_A) * 2 * Math.PI;
                 var am = (a0 + a1) / 2.0;
 
-                dc.setColor(0x3E2D12, Graphics.COLOR_TRANSPARENT);
+                // gold lozenge, then the blue field inset back inside it, which
+                // leaves a one-pixel gold outline for two fills instead of four
+                // lines
+                dc.setColor(0xCEAA60, Graphics.COLOR_TRANSPARENT);
                 dc.fillPolygon([
                     polar(rm, a0), polar(r1, am), polar(rm, a1), polar(r0, am)
                 ]);
 
-                // inset by 0.86 leaves roughly a pixel of engraved edge
                 var f = 0.86;
-                dc.setColor(bandGold(am), Graphics.COLOR_TRANSPARENT);
+                dc.setColor(ringBlue(rm, am), Graphics.COLOR_TRANSPARENT);
                 dc.fillPolygon([
                     polar(rm, am + (a0 - am) * f),
                     polar(rm + (r1 - rm) * f, am),
@@ -143,40 +154,31 @@ class SquareDial {
                 ]);
 
                 if ((k + row) % 2 == 0) {
-                    var g = 0.24;
-                    dc.setColor(0xF4E2B0, Graphics.COLOR_TRANSPARENT);
+                    var g = 0.26;
+                    dc.setColor(0xF4E0A8, Graphics.COLOR_TRANSPARENT);
                     dc.fillPolygon([
                         polar(rm, am + (a0 - am) * g),
                         polar(rm + (r1 - rm) * g, am),
                         polar(rm, am + (a1 - am) * g),
                         polar(rm - (rm - r0) * g, am)
                     ]);
-                } else {
-                    dc.setColor(0x3E2D12, Graphics.COLOR_TRANSPARENT);
-                    dc.setPenWidth(1);
-                    var q1 = polar(r0 + step * 0.28, a0 + (a1 - a0) * 0.28);
-                    var q2 = polar(r1 - step * 0.28, a1 - (a1 - a0) * 0.28);
-                    dc.drawLine(q1[0], q1[1], q2[0], q2[1]);
-                    var q3 = polar(r0 + step * 0.28, a1 - (a1 - a0) * 0.28);
-                    var q4 = polar(r1 - step * 0.28, a0 + (a1 - a0) * 0.28);
-                    dc.drawLine(q3[0], q3[1], q4[0], q4[1]);
                 }
             }
         }
 
-        // fine radial teeth inside the field, polished bead outside it
-        dc.setColor(0x60481E, Graphics.COLOR_TRANSPARENT);
+        // fine gold teeth on the inner edge, bead on the outer
+        dc.setColor(0xB49250, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(1);
         for (var k = 0; k < LATTICE_A * 2; k++) {
             var a = (k.toFloat() / (LATTICE_A * 2)) * 2 * Math.PI;
-            var q = polar(RING_IN + 1.5, a);
+            var q = polar(RING_IN + 2.0, a);
             var r = polar(fieldIn - 1.0, a);
             dc.drawLine(q[0], q[1], r[0], r[1]);
         }
 
-        dc.setColor(0xEAD29C, Graphics.COLOR_TRANSPARENT);
-        for (var k = 0; k < 96; k++) {
-            var a = (k.toFloat() / 96) * 2 * Math.PI;
+        dc.setColor(0xF4E0A8, Graphics.COLOR_TRANSPARENT);
+        for (var k = 0; k < 112; k++) {
+            var a = (k.toFloat() / 112) * 2 * Math.PI;
             var q = polar(RING_OUT - 5, a);
             dc.fillCircle(q[0], q[1], p(1.5) < 1 ? 1 : p(1.5));
         }
@@ -192,8 +194,9 @@ class SquareDial {
         dc.drawCircle(_cx, _cy, p(BLUE_R));
     }
 
-    // Numerals and darts are cut *into* the gold: a light lower lip with the
-    // dark shape over it. Gold laid on gold is illegible.
+    // Numerals and darts sit on the band's blue, so they are gold with a dark
+    // relief behind them. The engraved dark-on-gold treatment this dial used
+    // when the band was a gold slab would simply vanish here.
     function drawMarkers(dc as Dc) as Void {
         for (var h = 0; h < 12; h++) {
             if (h == 0 || h == 6) { continue; }     // XII and VI sit there
@@ -206,15 +209,8 @@ class SquareDial {
             if (l < 1.0) { l = 1.0; }
             var nx = (-dy / l * p(4.0)).toNumber();
             var ny = (dx / l * p(4.0)).toNumber();
-            var lip = p(1.2);
 
-            dc.setColor(0xEED69E, Graphics.COLOR_TRANSPARENT);
-            dc.fillPolygon([
-                [p1[0] + nx + lip, p1[1] + ny + lip],
-                [p2[0] + lip, p2[1] + lip],
-                [p1[0] - nx + lip, p1[1] - ny + lip]
-            ]);
-            dc.setColor(0x3A2A10, Graphics.COLOR_TRANSPARENT);
+            dc.setColor(0xF4E0A8, Graphics.COLOR_TRANSPARENT);
             dc.fillPolygon([
                 [p1[0] + nx, p1[1] + ny], p2, [p1[0] - nx, p1[1] - ny]
             ]);
@@ -222,14 +218,14 @@ class SquareDial {
 
         var labels = ["XII", "VI"];
         var at = [0.0, Math.PI];
-        var lip2 = p(1.3);
+        var lip = p(1.3);
         for (var i = 0; i < labels.size(); i++) {
             var q = polar(NUM_R, at[i]);
-            dc.setColor(0xF0DAA2, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(q[0] + lip2, q[1] + lip2, Graphics.FONT_SYSTEM_SMALL,
+            dc.setColor(0x0A162E, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(q[0] + lip, q[1] + lip, Graphics.FONT_SYSTEM_SMALL,
                 labels[i],
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-            dc.setColor(0x36260E, Graphics.COLOR_TRANSPARENT);
+            dc.setColor(0xF6E4B0, Graphics.COLOR_TRANSPARENT);
             dc.drawText(q[0], q[1], Graphics.FONT_SYSTEM_SMALL, labels[i],
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
         }
