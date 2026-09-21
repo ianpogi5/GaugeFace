@@ -12,12 +12,21 @@ import Toybox.WatchUi;
 // Geometry is in 416-dial units and goes through p(); that is what makes the
 // other Epix sizes work. See CLAUDE.md.
 
-// The band is a *blue* field carrying gold ornament, not a gold slab with dark
-// engraving cut into it. Getting that backwards is also why widening the band
-// once made the dial worse - it widened the wrong material.
+// The band is a near-black field carrying gold ornament, not a gold slab with
+// dark engraving cut into it. It runs all the way to the screen edge and fades
+// out there: stopping it short and capping it with a bright rim made the dial
+// read as a disc pasted onto the screen, with our own black margin showing
+// between it and the bezel.
 const BLUE_R = 144;
 const RING_IN = 146;
-const RING_OUT = 196;
+const RING_OUT = 208;      // the screen edge
+const FADE_FROM = 192;     // solid to here, then falls to black by RING_OUT
+// The outermost painted radius: the rim plus its stroke. bake_dial.py crops the
+// baked dial to this so the band reaches the edge of a round screen instead of
+// floating inside a black ring, which makes the screen 2*SQ_EDGE units wide for
+// this dial rather than 416. GaugeFaceView scales the live layer to match.
+// Must equal bake_dial.EDGE.
+const SQ_EDGE = 198;
 
 // The baked emblem asset, and where bake_emblem.py says it lands on a 416 dial.
 const SQ_EMBLEM_X = 97;
@@ -87,18 +96,16 @@ class SquareDial {
         }
     }
 
-    // The band's navy, a shade deeper than the centre. One colour per wedge is
-    // all a fillPolygon can carry, so the radial falloff comes from splitting
-    // the annulus into two sub-bands.
+    // The band's near-black, lit very slightly from the top. One colour per
+    // wedge is all a fillPolygon can carry, so the body of the band is split
+    // into two sub-bands and the fade to the screen edge is drawn separately
+    // as concentric rings - see drawRing.
     private function ringBlue(r as Numeric, th as Float) as Number {
         var t = (1.0 + r * Math.cos(th) / RING_OUT) / 2.0;
         if (t < 0.0) { t = 0.0; }
         if (t > 1.0) { t = 1.0; }
         t = t * 0.7 + 0.15;
-        var fall = 1.18 - r / RING_OUT.toFloat() * 0.5;
-        if (fall < 0.5) { fall = 0.5; }
-        if (fall > 1.0) { fall = 1.0; }
-        return mix([8, 20, 50], [22, 48, 96], t * fall);
+        return mix([2, 4, 10], [10, 16, 30], t);
     }
 
     // Blue field, then a gold lozenge lattice over it with a small gold diamond
@@ -106,8 +113,8 @@ class SquareDial {
     // band back into a solid mat.
     function drawRing(dc as Dc) as Void {
         var N = 96;
-        var rmid = (RING_IN + RING_OUT) / 2;
-        var sub = [[RING_IN, rmid], [rmid, RING_OUT]];
+        var rmid = (RING_IN + FADE_FROM) / 2;
+        var sub = [[RING_IN, rmid], [rmid, FADE_FROM]];
         for (var b = 0; b < sub.size(); b++) {
             var q0 = sub[b][0];
             var q1 = sub[b][1];
@@ -123,7 +130,7 @@ class SquareDial {
         }
 
         var fieldIn = RING_IN + 9;
-        var fieldOut = RING_OUT - 11;
+        var fieldOut = FADE_FROM - 2;
         var step = (fieldOut - fieldIn).toFloat() / LATTICE_R;
 
         for (var row = 0; row < LATTICE_R; row++) {
@@ -176,19 +183,23 @@ class SquareDial {
             dc.drawLine(q[0], q[1], r[0], r[1]);
         }
 
-        dc.setColor(0xF4E0A8, Graphics.COLOR_TRANSPARENT);
-        for (var k = 0; k < 112; k++) {
-            var a = (k.toFloat() / 112) * 2 * Math.PI;
-            var q = polar(RING_OUT - 5, a);
-            dc.fillCircle(q[0], q[1], p(1.5) < 1 ? 1 : p(1.5));
+        // fade to black over the last few units, so the dial melts into the
+        // bezel. Pen width overlaps the 1-unit step so no hairline gaps open
+        // up on the larger screens.
+        var span = RING_OUT - FADE_FROM;
+        dc.setPenWidth(p(2) < 1 ? 1 : p(2));
+        for (var k = 0; k <= span; k++) {
+            var f = 1.0 - k.toFloat() / span;
+            var rr = (6 * f).toNumber();
+            var gg = (10 * f).toNumber();
+            var bb = (20 * f).toNumber();
+            dc.setColor((rr << 16) | (gg << 8) | bb, Graphics.COLOR_TRANSPARENT);
+            dc.drawCircle(_cx, _cy, p(FADE_FROM + k));
         }
 
         dc.setColor(0xD6B264, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(p(2.4) < 1 ? 1 : p(2.4));
         dc.drawCircle(_cx, _cy, p(RING_IN));
-        dc.setColor(0xDEBC72, Graphics.COLOR_TRANSPARENT);
-        dc.setPenWidth(p(3.0) < 1 ? 1 : p(3.0));
-        dc.drawCircle(_cx, _cy, p(RING_OUT));
         dc.setColor(0x96783C, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(p(1.8) < 1 ? 1 : p(1.8));
         dc.drawCircle(_cx, _cy, p(BLUE_R));

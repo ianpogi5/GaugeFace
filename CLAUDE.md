@@ -66,20 +66,28 @@ These apply to both dials unless noted.
 - **Text gets its own gold ramp (`GOLD_TEXT`).** The full `GOLD` ramp runs dark
   at both ends, which buries small glyphs; the first `G` and the first engraved
   name both disappeared into the dial.
-- **Blue centre, not black.** Black-and-gold reads as the cheap end of the
-  fraternal-supply market.
+- **The *centre* stays blue.** Black-and-gold throughout reads as the cheap end
+  of the fraternal-supply market, which is why an all-dark variant was rejected.
+  The band going near-black is fine precisely because the navy centre still
+  carries the dial.
 - **Hands are split down their length**, lit on one side and shadowed on the
   other. That split is what reads as polished metal.
-- **The band is a blue field carrying gold ornament — not a gold slab.** This is
+- **The band is a dark field carrying gold ornament — not a gold slab.** This is
   the part that matters, and it took three passes to get right. The band was
   first built as gold with dark engraving cut into it; widening that toward the
   reference's proportions made the dial *worse*, because it widened the wrong
-  material. The reference's band is the same navy as the centre with a gold
-  lattice laid over it. Do not turn it back into gold.
+  material. Do not turn it back into gold. It was navy for a while and is now
+  near-black, which is crisper under the gold and, on an AMOLED, genuinely off.
+- **The dial runs to the screen edge and fades out there; it has no outer rim.**
+  Ending the band at radius 196 and capping it with a bright gold circle left a
+  12px black margin of our own between the dial and the bezel, and on the watch
+  it read as a disc pasted onto the screen. The band now reaches `RING_OUT` 208
+  and falls to black from `FADE_FROM` 192. Do not add an outer rim or an outer
+  bead ring back — both reinstate the hard edge.
 - **The band's *width* is a taste call, not a fidelity one.** The reference gives
-  roughly 40% of the radius to the band; this dial gives it 25%
-  (`BLUE_R` 144, band 146–196), because a narrower ring was preferred once the
-  material was right. Earlier notes here asserted first that the band must not
+  roughly 40% of the radius to the band; this dial gives it 30%
+  (`BLUE_R` 144, band 146–208 with the outer 16 fading out), because a narrower
+  ring was preferred once the material was right. Earlier notes here asserted first that the band must not
   dominate and then that it must be wide — both overstated. Change the width
   freely; just remember `NUM_R`, `LATTICE_R`, the line-work radii, the emblem
   scale and the name's `y` all key off it.
@@ -141,8 +149,8 @@ private `p(v)` that scales-and-rounds. **Write new geometry in 416 units and put
 it through `p()`** — that is what makes the Epix Pro sizes work.
 
 Square dial constants (`DialSquare.mc`): `BLUE_R` 144, `RING_IN` 146,
-`RING_OUT` 196, `NUM_R` 171, `SQ_EMBLEM_X`/`Y` 97/99, plus the cost tunables
-`RAYS` 80, `BANDS` 3, `LATTICE_A` 56 and `LATTICE_R` 2. Gauge dial constants
+`RING_OUT` 208, `FADE_FROM` 192, `NUM_R` 171, `SQ_EMBLEM_X`/`Y` 97/99, plus the
+cost tunables `RAYS` 80, `BANDS` 3, `LATTICE_A` 56 and `LATTICE_R` 2. Gauge dial constants
 (`DialGauge.mc`): `DIAL_INNER` 172, `RING_OUTER` 204, `SUB_OFFSET` 132,
 `SUB_RADIUS` 34, `GA_EMBLEM_X`/`Y` 103/103.
 
@@ -239,23 +247,26 @@ together, and `liveGauge` for the top window.
 Sideloaded apps don't get settings in the phone app — change them in the
 simulator, or publish as a private Connect IQ app.
 
-## Known unknowns — none of this has ever compiled
+## Build status
 
-Written without an SDK available; there is no `monkeyc` on PATH here. Expect
-first-build friction:
+**It compiles and runs on a real Epix Gen 2**, as of the edge-treatment work.
+The custom bitmap font loaded correctly on device — that was the piece most
+likely to fail. There is still no SDK and no `monkeyc` on PATH *here*, so
+changes made in this environment remain unverified until built on the user's
+machine. The notes below are what to expect from a fresh checkout:
 
-- **The font is the least certain part.** Nothing has confirmed that Garmin's
-  resource compiler accepts this exact BMFont dialect, or that it wants an RGBA
-  atlas rather than a palettised one. If it rejects the font, `drawName` already
-  falls back to `FONT_SYSTEM_SMALL`. What *is* verified: glyphs reassembled from
-  the baked `.fnt` metrics match the mock-up's own layout to within half a pixel
-  of centre on several names.
+- **The font works on device.** Garmin's resource compiler accepts the BMFont
+  dialect `bake_font.py` emits, with the RGBA atlas, and the name renders in
+  script on a real watch. `drawName` still falls back to `FONT_SYSTEM_SMALL` if
+  the resource fails to load; leave that in.
 - Device IDs in `manifest.xml` need reconciling against
   `~/.Garmin/ConnectIQ/Devices/`.
 - Full-screen buffered bitmap may fail to allocate. Fallbacks: halve `RAYS`, or
   buffer at half resolution and scale on blit.
-- The static layer is roughly **970** primitive calls for the Square dial (the
-  band accounts for 700 of them) and ~700 for the Gauge. Once only, in
+- The static layer is roughly **875** primitive calls for the Square dial (the
+  band accounts for 600 of them) and ~700 for the Gauge. The edge fade is 17
+  concentric `drawCircle`s rather than another 96-wedge sub-band — out there the
+  band is near-black, so per-wedge top-lighting is imperceptible. Once only, in
   `onLayout`, but if the face is slow to appear, drop `LATTICE_R` to 2 before
   touching `RAYS` — the band matters more to the likeness than the rays, which
   the emblem largely covers.

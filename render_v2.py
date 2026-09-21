@@ -21,9 +21,25 @@ SS = 4
 W = S * SS
 C = W // 2
 
-SERIF = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
-SANS = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-SANSB = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+# DejaVu, wherever the distro keeps it. Debian puts it under truetype/dejavu/,
+# Fedora under dejavu-*-fonts/. Resolved rather than hardcoded so the same
+# checkout renders identically on either; the dial's XII/VI and the emblem's G
+# are DejaVu Serif Bold, so a silent substitution would change the artwork.
+def _dejavu(stem):
+    roots = ("/usr/share/fonts", "/usr/local/share/fonts",
+             str(Path.home() / ".local/share/fonts"))
+    for root in roots:
+        for hit in Path(root).rglob(stem):
+            return str(hit)
+    raise SystemExit(
+        f"{stem} not found. Install DejaVu:\n"
+        f"  Debian/Ubuntu: apt-get install -y fonts-dejavu-core\n"
+        f"  Fedora:        dnf install -y dejavu-serif-fonts dejavu-sans-fonts")
+
+
+SERIF = _dejavu("DejaVuSerif-Bold.ttf")
+SANS = _dejavu("DejaVuSans.ttf")
+SANSB = _dejavu("DejaVuSans-Bold.ttf")
 
 rng = np.random.default_rng(7)
 

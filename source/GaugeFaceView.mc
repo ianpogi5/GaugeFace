@@ -53,7 +53,6 @@ class GaugeFaceView extends WatchUi.WatchFace {
         _w = dc.getWidth();
         _cx = _w / 2;
         _cy = dc.getHeight() / 2;
-        _s = _w / 416.0;
 
         var settings = System.getDeviceSettings();
         if (settings has :requiresBurnInProtection) {
@@ -103,7 +102,20 @@ class GaugeFaceView extends WatchUi.WatchFace {
 
     // ------------------------------------------------------------ static layer
 
+    // The two dials do not share a scale. The Gauge dial is drawn live in
+    // 416-units, so the screen is 416 units wide for it. The Square dial's
+    // bitmap is baked cropped to the dial's rim, so the screen is 2*SQ_EDGE
+    // units wide instead -- and the live layer over it (name, day/date, hands)
+    // has to use that same scale or it sits off the baked artwork.
+    //
+    // Recomputed here rather than in onLayout because the style can change
+    // without a relayout: onSettingsChanged calls loadSettings then buildDial.
+    private function applyScale() as Void {
+        _s = (_style == STYLE_GAUGE) ? (_w / 416.0) : (_w / (2.0 * SQ_EDGE));
+    }
+
     private function buildDial() as Void {
+        applyScale();
         if (!(Graphics has :createBufferedBitmap)) {
             _dial = null;   // fall back to drawing live in onUpdate
             return;
@@ -129,19 +141,24 @@ class GaugeFaceView extends WatchUi.WatchFace {
         }
     }
 
+    // The Square dial's static layer is a baked bitmap rather than drawn here.
+    // Drawing it live tripped the Connect IQ watchdog on device: the band alone
+    // is ~470 fillPolygon calls and every vertex goes through polar(), so
+    // onLayout asked the VM for roughly 3,200 trig evaluations in a single
+    // callback. The watch killed it twice and showed a broken-icon face.
+    //
+    // bake_dial.py renders the same artwork out of render_v3 -- one PNG per
+    // screen size -- so the centre, band, markers, symbols, emblem and aperture
+    // frame all arrive together, already in the right order. That is why the
+    // draw-order note that used to live here now lives in render_v3.draw_static:
+    // it is the only place the order still exists.
+    //
+    // The name stays live. It is a user setting, so it cannot be baked, and the
+    // aperture is baked empty because the day and date are drawn every update.
     private function paintSquare(dc as Dc) as Void {
-        var r = _square;
-        if (r == null) { r = new SquareDial(_w); _square = r; }
-        r.drawCentre(dc);
-        r.drawRing(dc);
-        r.drawMarkers(dc);
-        r.drawSymbols(dc);
-        // Order matters here: the square's right arm crosses the aperture, so
-        // the frame has to go on *after* the emblem or the window is buried
-        // and the live day/date lands on bare gold. This must match the order
-        // in render_v3.draw_static.
-        r.drawEmblem(dc);
-        r.drawApertureFrame(dc);
+        _square = null;
+        var bmp = WatchUi.loadResource(Rez.Drawables.DialSquare) as BitmapResource;
+        dc.drawBitmap(0, 0, bmp);
         drawName(dc);
     }
 

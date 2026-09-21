@@ -31,7 +31,11 @@ NAME = "Singko"
 # rest to the gold band. Earlier passes had the band far too narrow and the
 # dial read as a blue face with a gold trim rather than an engraved bezel.
 BLUE_R = 144          # inner blue dial
-RING_IN, RING_OUT = 146, 196
+# The band now runs to the screen edge and fades out there. Stopping it short
+# of the edge and capping it with a bright rim made the dial read as a disc
+# pasted onto the screen, with our own black margin between it and the bezel.
+RING_IN, RING_OUT = 146, 208
+FADE_FROM = 192       # band is solid to here, then falls to black by RING_OUT
 
 EMBLEM_SCALE = 1.08   # must match bake_emblem.TARGETS["square"]["scale"]
 
@@ -118,15 +122,21 @@ LATTICE_R = 2         # rows across the band
 
 
 def ring_field():
-    """Navy base for the band, a shade deeper than the centre."""
+    """Near-black base for the band, fading to true black at the screen edge.
+
+    Gold on black is far crisper than gold on navy, and on an AMOLED the black
+    is genuinely off - so the band merges into the bezel instead of ending at
+    a visible edge.
+    """
     y, x = np.mgrid[0:W, 0:W]
     dx, dy = (x - C) / SS, (y - C) / SS
     r = np.hypot(dx, dy)
-    deep = np.array([8, 20, 50], dtype=float)
-    lift = np.array([22, 48, 96], dtype=float)
+    deep = np.array([2, 4, 10], dtype=float)
+    lift = np.array([10, 16, 30], dtype=float)
     t = np.clip((1.0 - dy / RING_OUT) / 2.0, 0, 1) * 0.7 + 0.15
-    t = t * np.clip(1.18 - r / RING_OUT * 0.5, 0.5, 1.0)
     img = deep[None, None, :] + (lift - deep)[None, None, :] * t[:, :, None]
+    fade = np.clip((RING_OUT - r) / float(RING_OUT - FADE_FROM), 0, 1)
+    img *= fade[:, :, None]
     return Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), "RGB")
 
 
@@ -142,7 +152,7 @@ def ornate_ring(img):
         fill=0)
     img.paste(ring_field(), (0, 0), ann)
 
-    field_in, field_out = RING_IN + 9, RING_OUT - 11
+    field_in, field_out = RING_IN + 9, FADE_FROM - 2
     step = (field_out - field_in) / LATTICE_R
     gold = (206, 170, 96, 255)
     bright = (244, 224, 168, 255)
@@ -174,14 +184,7 @@ def ornate_ring(img):
         a = k / (LATTICE_A * 2) * 2 * math.pi
         d.line([pol(RING_IN + 2.0, a), pol(field_in - 1.0, a)],
                fill=(180, 146, 80, 220), width=int(0.9 * SS))
-    for k in range(112):
-        a = k / 112 * 2 * math.pi
-        p = pol(RING_OUT - 5, a)
-        br = 1.5 * SS
-        d.ellipse([p[0] - br, p[1] - br, p[0] + br, p[1] + br], fill=bright)
-
     for rad, wid, col in ((RING_IN, 2.4, (214, 178, 100)),
-                          (RING_OUT, 3.0, (222, 188, 114)),
                           (BLUE_R, 1.8, (150, 120, 60))):
         d.ellipse([C - rad * SS, C - rad * SS, C + rad * SS, C + rad * SS],
                   outline=col, width=int(wid * SS))
@@ -290,6 +293,9 @@ def emblem(img, scale=EMBLEM_SCALE):
 # ------------------------------------------------------------------- aperture
 
 def aperture(img, day="SUN", date="8"):
+    """The day/date window. `day=None, date=None` draws the frame and the white
+    window but no text, which is what bake_dial.py wants -- the day and date
+    are live, so GaugeFaceView draws them into the window every update."""
     d = ImageDraw.Draw(img, "RGBA")
     x0, y0, x1, y1 = C + 70 * SS, C - 10 * SS, C + 110 * SS, C + 10 * SS
     d.rounded_rectangle([x0 - 2 * SS, y0 - 2 * SS, x1 + 2 * SS, y1 + 2 * SS],
@@ -297,10 +303,12 @@ def aperture(img, day="SUN", date="8"):
     d.rounded_rectangle([x0, y0, x1, y1], radius=1.5 * SS, fill=(238, 236, 230))
     d.line([(x0 + 23 * SS, y0), (x0 + 23 * SS, y1)], fill=(170, 168, 162),
            width=int(1.0 * SS))
-    d.text(((x0 + x0 + 23 * SS) / 2, (y0 + y1) / 2), day, font=font(SANSB, 10),
-           fill=(24, 24, 28), anchor="mm")
-    d.text(((x0 + 23 * SS + x1) / 2, (y0 + y1) / 2), date, font=font(SANSB, 12),
-           fill=(190, 32, 34), anchor="mm")
+    if day is not None:
+        d.text(((x0 + x0 + 23 * SS) / 2, (y0 + y1) / 2), day, font=font(SANSB, 10),
+               fill=(24, 24, 28), anchor="mm")
+    if date is not None:
+        d.text(((x0 + 23 * SS + x1) / 2, (y0 + y1) / 2), date, font=font(SANSB, 12),
+               fill=(190, 32, 34), anchor="mm")
 
 
 # ----------------------------------------------------------------------- name
@@ -343,7 +351,10 @@ def engraved_name(img, name=NAME, y=124, size=34):
 
 # --------------------------------------------------------------------- layers
 
-def draw_static(name=NAME):
+def draw_static(name=NAME, day="SUN", date="8"):
+    """Everything that does not move. `name=None` leaves the engraved name off,
+    which is what bake_dial.py wants: the name is a user setting, so on device
+    it is drawn over the baked dial rather than baked into it."""
     img = Image.new("RGB", (W, W), (6, 10, 20))
     disc = Image.new("L", (W, W), 0)
     ImageDraw.Draw(disc).ellipse(
@@ -355,8 +366,9 @@ def draw_static(name=NAME):
     markers(img)
     symbols(img)
     emblem(img)
-    aperture(img)
-    engraved_name(img, name)
+    aperture(img, day, date)
+    if name is not None:
+        engraved_name(img, name)
     return img
 
 

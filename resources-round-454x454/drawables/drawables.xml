@@ -1,0 +1,4 @@
+<drawables>
+    <!-- Baked by bake_dial.py; see the module docstring. -->
+    <bitmap id="DialSquare" filename="dial_square.png" />
+</drawables>

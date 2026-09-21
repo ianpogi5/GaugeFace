@@ -5,8 +5,8 @@ Two dials in one watch face, chosen in the settings. Built for the Epix Gen 2
 
 ![the two dials side by side](docs/preview.png)
 
-**Square and Compasses** (default) — a navy engine-turned centre inside a navy
-band carrying a gold quilted lattice, gold XII and VI, fine gold line-work
+**Square and Compasses** (default) — a navy engine-turned centre inside a
+near-black band carrying a gold quilted lattice, gold XII and VI, fine gold line-work
 in the blue field (blazing star, small square, point within a circle), the
 applied square and compasses around an ornate G, a day/date aperture at three,
 and your name engraved in script below the emblem.
@@ -109,18 +109,18 @@ if you want to switch dials or set the name from your phone.
 
 ## Things to expect on first build
 
-I couldn't compile this — no Garmin SDK in the environment it was written in.
-Budget an hour for the usual friction:
+It compiles and runs on a real Epix Gen 2, custom font and all. But the SDK
+isn't available in the environment it's developed in, so a fresh checkout is
+worth treating with care:
 
-- **The custom font is the least certain part.** Its metrics are verified
-  against a direct render, but nothing has confirmed Garmin's resource compiler
-  accepts this BMFont dialect or wants an RGBA atlas. If it's rejected, the name
-  falls back to a system font and stops being cursive.
+- **The custom font is known to work on device.** If you ever swap the typeface
+  and the resource compiler rejects the new atlas, `drawName` falls back to a
+  system font and the name simply stops being cursive.
 - **Device IDs.** Check the folder names under `~/.Garmin/ConnectIQ/Devices/`
   and reconcile `manifest.xml` against them.
 - **Memory and startup.** Two dials means two static layers of code and two
   emblem assets, though only one of each is live at a time. The Square dial's
-  static layer is about 970 primitive calls, drawn once in `onLayout`; if it's
+  static layer is about 875 primitive calls, drawn once in `onLayout`; if it's
   slow to appear, drop `LATTICE_R` to 2 in `DialSquare.mc`. If the full-screen
   buffer fails to allocate, render it at half resolution and scale on blit.
 - **Sunrise and sunset** (Gauge dial) need a position fix; until the watch has
