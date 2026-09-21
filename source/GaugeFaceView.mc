@@ -333,7 +333,7 @@ class GaugeFaceView extends WatchUi.WatchFace {
         var nx = (-dy / l * p(8)).toNumber();
         var ny = (dx / l * p(8)).toNumber();
         dc.setColor(0xFFF0C8, Graphics.COLOR_TRANSPARENT);
-        dc.fillPolygon([[base[0] + nx, base[1] + ny], tip, [base[0] - nx, base[1] - ny]]);
+        dc.fillPolygon([[base[0] + nx, base[1] + ny], tip, [base[0] - nx, base[1] - ny]] as Array);
     }
 
     // Both hand shapes are split down their length, lit on one side and
@@ -344,20 +344,20 @@ class GaugeFaceView extends WatchUi.WatchFace {
         dc.setColor(0xFAEED6, Graphics.COLOR_TRANSPARENT);
         dc.fillPolygon([
             rot(-wd, 20, a), rot(-wd * 0.45, -len, a), rot(0, -len, a), rot(0, 20, a)
-        ]);
+        ] as Array);
         dc.setColor(0xB09E80, Graphics.COLOR_TRANSPARENT);
         dc.fillPolygon([
             rot(0, 20, a), rot(0, -len, a), rot(wd * 0.45, -len, a), rot(wd, 20, a)
-        ]);
+        ] as Array);
     }
 
     private function handDauphine(dc as Dc, a as Float, len as Number, wd as Number) as Void {
         var tip = rot(0, -len, a);
         var tail = rot(0, 26, a);
         dc.setColor(0xFAE8B6, Graphics.COLOR_TRANSPARENT);
-        dc.fillPolygon([rot(-wd, 16, a), tip, tail]);
+        dc.fillPolygon([rot(-wd, 16, a), tip, tail] as Array);
         dc.setColor(0xB08A3E, Graphics.COLOR_TRANSPARENT);
-        dc.fillPolygon([tip, rot(wd, 16, a), tail]);
+        dc.fillPolygon([tip, rot(wd, 16, a), tail] as Array);
     }
 
     private function secondHand(dc as Dc, clock as System.ClockTime,

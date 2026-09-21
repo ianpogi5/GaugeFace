@@ -82,7 +82,7 @@ class SquareDial {
                 dc.fillPolygon([
                     polar(bands[b][0], a0), polar(bands[b][1], a0),
                     polar(bands[b][1], a1), polar(bands[b][0], a1)
-                ]);
+                ] as Array);
             }
         }
     }
@@ -118,7 +118,7 @@ class SquareDial {
                 dc.setColor(ringBlue(qm, (a0 + a1) / 2.0), Graphics.COLOR_TRANSPARENT);
                 dc.fillPolygon([
                     polar(q0, a0), polar(q1, a0), polar(q1, a1), polar(q0, a1)
-                ]);
+                ] as Array);
             }
         }
 
@@ -142,7 +142,7 @@ class SquareDial {
                 dc.setColor(0xCEAA60, Graphics.COLOR_TRANSPARENT);
                 dc.fillPolygon([
                     polar(rm, a0), polar(r1, am), polar(rm, a1), polar(r0, am)
-                ]);
+                ] as Array);
 
                 var f = 0.86;
                 dc.setColor(ringBlue(rm, am), Graphics.COLOR_TRANSPARENT);
@@ -151,7 +151,7 @@ class SquareDial {
                     polar(rm + (r1 - rm) * f, am),
                     polar(rm, am + (a1 - am) * f),
                     polar(rm - (rm - r0) * f, am)
-                ]);
+                ] as Array);
 
                 if ((k + row) % 2 == 0) {
                     var g = 0.26;
@@ -161,7 +161,7 @@ class SquareDial {
                         polar(rm + (r1 - rm) * g, am),
                         polar(rm, am + (a1 - am) * g),
                         polar(rm - (rm - r0) * g, am)
-                    ]);
+                    ] as Array);
                 }
             }
         }
@@ -213,7 +213,7 @@ class SquareDial {
             dc.setColor(0xF4E0A8, Graphics.COLOR_TRANSPARENT);
             dc.fillPolygon([
                 [p1[0] + nx, p1[1] + ny], p2, [p1[0] - nx, p1[1] - ny]
-            ]);
+            ] as Array);
         }
 
         var labels = ["XII", "VI"];

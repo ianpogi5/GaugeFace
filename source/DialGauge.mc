@@ -76,7 +76,7 @@ class GaugeDial {
                 dc.setColor(mix(base, hi, t * f), Graphics.COLOR_TRANSPARENT);
                 dc.fillPolygon([
                     polar(r0, a0), polar(r1, a0), polar(r1, a1), polar(r0, a1)
-                ]);
+                ] as Array);
             }
         }
     }
@@ -95,7 +95,7 @@ class GaugeDial {
             dc.setColor(isDay ? day : night, Graphics.COLOR_TRANSPARENT);
             dc.fillPolygon([
                 polar(DIAL_INNER, a0), polar(212, a0), polar(212, a1), polar(DIAL_INNER, a1)
-            ]);
+            ] as Array);
         }
 
         // twenty-four inches, divided to eighths

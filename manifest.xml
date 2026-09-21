@@ -14,7 +14,8 @@
             <iq:product id="epix2pro51mm"/>
         </iq:products>
         <iq:permissions>
-            <iq:uses-permission name="SensorHistory"/>
+            <iq:uses-permission id="SensorHistory"/>
+            <iq:uses-permission id="Positioning"/>
         </iq:permissions>
         <iq:languages>
             <iq:language>eng</iq:language>
