@@ -279,10 +279,20 @@ class GaugeFaceView extends WatchUi.WatchFace {
             now.day.format("%d"),
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        handDauphine(dc, hourAngle(clock), 84, 9);
-        handDauphine(dc, minuteAngle(clock), 130, 7);
-        secondHand(dc, clock, 146, 28, 1.6);
-        cap(dc, 6, 2.2);
+        // lengths and widths are render_v3's HOUR_*, MIN_*, SEC_*
+        handInlaid(dc, hourAngle(clock), 100, 11);
+        handInlaid(dc, minuteAngle(clock), 172, 8);
+        if (_showSeconds) {
+            var sa = clock.sec / 60.0 * 2 * Math.PI;
+            var t = rot(0, -178, sa);
+            var b = rot(0, 30, sa);
+            dc.setColor(0xD63A30, Graphics.COLOR_TRANSPARENT);
+            dc.setPenWidth(p(1.6) < 1 ? 1 : p(1.6));
+            dc.drawLine(b[0], b[1], t[0], t[1]);
+        }
+        dc.setColor(0x281E0C, Graphics.COLOR_TRANSPARENT);
+        dc.fillCircle(_cx, _cy, p(8.2));
+        cap(dc, 7, 2.4);
     }
 
     private function liveGauge(dc as Dc, clock as System.ClockTime) as Void {
@@ -355,7 +365,7 @@ class GaugeFaceView extends WatchUi.WatchFace {
 
     // Both hand shapes are split down their length, lit on one side and
     // shadowed on the other. That split is what reads as polished metal.
-    // The dials use different outlines: a taper on the Gauge, a dauphine kite
+    // The dials use different outlines: a taper on the Gauge, an inlaid sword
     // on the Square.
     private function handTaper(dc as Dc, a as Float, len as Number, wd as Number) as Void {
         dc.setColor(0xFAEED6, Graphics.COLOR_TRANSPARENT);
@@ -368,13 +378,40 @@ class GaugeFaceView extends WatchUi.WatchFace {
         ] as Array);
     }
 
-    private function handDauphine(dc as Dc, a as Float, len as Number, wd as Number) as Void {
-        var tip = rot(0, -len, a);
-        var tail = rot(0, 26, a);
+    // Mirrors render_v3.hands. The Square dial's hands used to be plain gold
+    // dauphines, the same metal and width as the compass limbs, and at most
+    // times they vanished into the emblem. The dark rim separates the hand from
+    // the gold beneath it; the ivory inlay is what the eye follows.
+    private function handInlaid(dc as Dc, a as Float, len as Number, wd as Number) as Void {
+        var g = 2.0;
+        dc.setColor(0x060A14, Graphics.COLOR_TRANSPARENT);
+        dc.fillPolygon([
+            rot(-(wd + g), 18 + g, a), rot(-(wd * 0.6 + g), -len * 0.8, a),
+            rot(0, -(len + g * 1.5), a),
+            rot(wd * 0.6 + g, -len * 0.8, a), rot(wd + g, 18 + g, a)
+        ] as Array);
+
         dc.setColor(0xFAE8B6, Graphics.COLOR_TRANSPARENT);
-        dc.fillPolygon([rot(-wd, 16, a), tip, tail] as Array);
+        dc.fillPolygon([
+            rot(-wd, 18, a), rot(-wd * 0.6, -len * 0.8, a), rot(0, -len, a), rot(0, 18, a)
+        ] as Array);
         dc.setColor(0xB08A3E, Graphics.COLOR_TRANSPARENT);
-        dc.fillPolygon([tip, rot(wd, 16, a), tail] as Array);
+        dc.fillPolygon([
+            rot(0, 18, a), rot(0, -len, a), rot(wd * 0.6, -len * 0.8, a), rot(wd, 18, a)
+        ] as Array);
+
+        var iw = wd * 0.38;
+        dc.setColor(0x0C1834, Graphics.COLOR_TRANSPARENT);
+        dc.fillPolygon([
+            rot(-iw, -14, a), rot(-iw * 0.7, -len * 0.74, a), rot(0, -len * 0.84, a),
+            rot(iw * 0.7, -len * 0.74, a), rot(iw, -14, a)
+        ] as Array);
+        dc.setColor(0xF6F4EC, Graphics.COLOR_TRANSPARENT);
+        dc.fillPolygon([
+            rot(-iw + 1, -16, a), rot(-iw * 0.7 + 0.8, -len * 0.74 + 1, a),
+            rot(0, -len * 0.84 + 2, a), rot(iw * 0.7 - 0.8, -len * 0.74 + 1, a),
+            rot(iw - 1, -16, a)
+        ] as Array);
     }
 
     private function secondHand(dc as Dc, clock as System.ClockTime,

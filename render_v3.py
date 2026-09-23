@@ -154,8 +154,12 @@ def ornate_ring(img):
 
     field_in, field_out = RING_IN + 9, FADE_FROM - 2
     step = (field_out - field_in) / LATTICE_R
-    gold = (206, 170, 96, 255)
-    bright = (244, 224, 168, 255)
+    # The lattice is ornament behind the markers, not competing with them. At
+    # full gold its diamonds were the same size and colour as the hour darts
+    # and, after a few days of wearing it, the time could not be read. Held at
+    # about half brightness it still carries the band; the batons sit on top.
+    gold = (104, 86, 50, 255)
+    bright = (124, 112, 84, 255)
 
     for row in range(LATTICE_R):
         r0 = field_in + row * step
@@ -190,7 +194,12 @@ def ornate_ring(img):
                   outline=col, width=int(wid * SS))
 
 
-NUM_R = RING_IN + 25        # numerals and darts share the band's mid-radius
+NUM_R = RING_IN + 25        # numerals and batons share the band's mid-radius
+
+# Hour batons, radial, in the band. They replaced small gold darts that were
+# lost among the lattice's diamonds: markers have to be the brightest thing in
+# the band or the hands have nothing to be read against.
+BATON_IN, BATON_OUT, BATON_W = RING_IN + 8, RING_IN + 34, 4.2
 
 
 def markers(img):
@@ -199,19 +208,21 @@ def markers(img):
         if h == 0 or h == 6:
             continue        # XII and VI sit there instead
         a = h / 12 * 2 * math.pi
-        p1, p2 = pol(NUM_R - 9, a), pol(NUM_R + 9, a)
-        n = (-(p2[1] - p1[1]), p2[0] - p1[0])
-        ln = math.hypot(*n) or 1
-        nx, ny = n[0] / ln * 4.0 * SS, n[1] / ln * 4.0 * SS
-        d.polygon([(p1[0] + nx, p1[1] + ny), p2, (p1[0] - nx, p1[1] - ny)],
-                  fill=(244, 224, 168, 255), outline=(120, 92, 40), width=int(SS))
+        r0, r1, w = BATON_IN, BATON_OUT, BATON_W
+        d.polygon([rot(-w, -r0, a), rot(w, -r0, a), rot(w, -r1, a), rot(-w, -r1, a)],
+                  fill=(0, 0, 0, 210))
+        w, r0, r1 = w - 1.2, r0 + 1.2, r1 - 1.2
+        d.polygon([rot(-w, -r0, a), rot(0, -r0, a), rot(0, -r1, a), rot(-w, -r1, a)],
+                  fill=(252, 238, 196))
+        d.polygon([rot(0, -r0, a), rot(w, -r0, a), rot(w, -r1, a), rot(0, -r1, a)],
+                  fill=(200, 160, 80))
 
-    f = font(SERIF, 30)
+    f = font(SERIF, 34)
     for label, a in (("XII", 0.0), ("VI", math.pi)):
         px, py = pol(NUM_R, a)
-        d.text((px + 1.3 * SS, py + 1.3 * SS), label, font=f,
-               fill=(10, 22, 46, 220), anchor="mm")
-        d.text((px, py), label, font=f, fill=(246, 228, 176, 255), anchor="mm")
+        d.text((px, py), label, font=f, fill=(0, 0, 0, 220), anchor="mm",
+               stroke_width=int(2.5 * SS), stroke_fill=(0, 0, 0, 220))
+        d.text((px, py), label, font=f, fill=(250, 234, 186), anchor="mm")
 
 
 # The photo scatters fine gold line-work in the blue field between the limbs:
@@ -372,36 +383,54 @@ def draw_static(name=NAME, day="SUN", date="8"):
     return img
 
 
+# Hand geometry, shared with GaugeFaceView.liveSquare. The minute hand reaches
+# into the batons; the old 84/130 pair stopped inside the blue centre and never
+# pointed at anything.
+HOUR_L, HOUR_W = 100, 11
+MIN_L, MIN_W = 172, 8
+SEC_L, SEC_TAIL = 178, 30
+
+
+def hand_outline(ang, L, wd, grow=0.0):
+    g = grow
+    return [rot(-(wd + g), 18 + g, ang), rot(-(wd * 0.6 + g), -L * 0.8, ang),
+            rot(0, -(L + g * 1.5), ang),
+            rot(wd * 0.6 + g, -L * 0.8, ang), rot(wd + g, 18 + g, ang)]
+
+
 def hands(img, h, m, s):
-    d = ImageDraw.Draw(img, "RGBA")
+    """Drawn only with what liveSquare can do: flat polygon fills, no blur.
+
+    The hands used to be plain gold dauphines, the same metal and width as the
+    compass limbs, and at most times they vanished into the emblem. Now each
+    one has a dark rim, which separates it from the gold under it, and an
+    ivory inlay down the middle for the eye to follow.
+    """
     ha = ((h % 12) + m / 60) / 12 * 2 * math.pi
     ma = (m + s / 60) / 60 * 2 * math.pi
-
-    for ang, L, wd in ((ha, 84, 9), (ma, 130, 7)):
-        sh = Image.new("L", img.size, 0)
-        ImageDraw.Draw(sh).polygon(
-            [rot(-wd, 16, ang), rot(0, -L, ang), rot(wd, 16, ang), rot(0, 26, ang)],
-            fill=170)
-        sh = sh.transform(img.size, Image.AFFINE,
-                          (1, 0, -3 * SS, 0, 1, -3 * SS))
-        sh = sh.filter(ImageFilter.GaussianBlur(1.5 * SS))
-        img.paste(Image.new("RGB", img.size, (5, 12, 26)), (0, 0), sh)
-
     d = ImageDraw.Draw(img, "RGBA")
-    for ang, L, wd in ((ha, 84, 9), (ma, 130, 7)):
-        d.polygon([rot(-wd, 16, ang), rot(0, -L, ang), rot(0, 26, ang)],
-                  fill=(250, 232, 182))
-        d.polygon([rot(0, 16, ang), rot(0, -L, ang), rot(wd, 16, ang),
-                   rot(0, 26, ang)], fill=(176, 138, 62))
-        d.polygon([rot(-wd, 16, ang), rot(0, -L, ang), rot(wd, 16, ang),
-                   rot(0, 26, ang)], outline=(92, 70, 28), width=int(1.0 * SS))
+
+    for ang, L, wd in ((ha, HOUR_L, HOUR_W), (ma, MIN_L, MIN_W)):
+        d.polygon(hand_outline(ang, L, wd, grow=2.0), fill=(6, 10, 20))
+        d.polygon([rot(-wd, 18, ang), rot(-wd * 0.6, -L * 0.8, ang),
+                   rot(0, -L, ang), rot(0, 18, ang)], fill=(250, 232, 182))
+        d.polygon([rot(0, 18, ang), rot(0, -L, ang),
+                   rot(wd * 0.6, -L * 0.8, ang), rot(wd, 18, ang)],
+                  fill=(176, 138, 62))
+        iw = wd * 0.38
+        d.polygon([rot(-iw, -14, ang), rot(-iw * 0.7, -L * 0.74, ang),
+                   rot(0, -L * 0.84, ang), rot(iw * 0.7, -L * 0.74, ang),
+                   rot(iw, -14, ang)], fill=(12, 24, 52))
+        d.polygon([rot(-iw + 1, -16, ang), rot(-iw * 0.7 + 0.8, -L * 0.74 + 1, ang),
+                   rot(0, -L * 0.84 + 2, ang), rot(iw * 0.7 - 0.8, -L * 0.74 + 1, ang),
+                   rot(iw - 1, -16, ang)], fill=(246, 244, 236))
 
     sa = s / 60 * 2 * math.pi
-    d.line([rot(0, 30, sa), rot(0, -146, sa)], fill=(238, 198, 120),
+    d.line([rot(0, SEC_TAIL, sa), rot(0, -SEC_L, sa)], fill=(214, 58, 48),
            width=int(1.6 * SS))
-    d.ellipse([C - 6 * SS, C - 6 * SS, C + 6 * SS, C + 6 * SS],
-              fill=(226, 196, 132), outline=(120, 92, 40), width=int(1.1 * SS))
-    d.ellipse([C - 2.2 * SS, C - 2.2 * SS, C + 2.2 * SS, C + 2.2 * SS],
+    d.ellipse([C - 7 * SS, C - 7 * SS, C + 7 * SS, C + 7 * SS],
+              fill=(226, 196, 132), outline=(40, 30, 12), width=int(1.2 * SS))
+    d.ellipse([C - 2.4 * SS, C - 2.4 * SS, C + 2.4 * SS, C + 2.4 * SS],
               fill=(16, 30, 56))
     return img
 

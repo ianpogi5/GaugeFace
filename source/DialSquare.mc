@@ -62,6 +62,13 @@ class SquareDial {
         return [_cx + p(r * Math.sin(a)), _cy - p(r * Math.cos(a))];
     }
 
+    // A point `x` across and `r` out along the radius at angle `a`.
+    private function side(x as Numeric, r as Numeric, a as Float) as Array<Number> {
+        var c = Math.cos(a);
+        var n = Math.sin(a);
+        return [_cx + p(x * c + r * n), _cy + p(x * n - r * c)];
+    }
+
     private function mix(a as Array<Number>, b as Array<Number>, t as Float) as Number {
         if (t < 0.0) { t = 0.0; }
         if (t > 1.0) { t = 1.0; }
@@ -146,7 +153,8 @@ class SquareDial {
                 // gold lozenge, then the blue field inset back inside it, which
                 // leaves a one-pixel gold outline for two fills instead of four
                 // lines
-                dc.setColor(0xCEAA60, Graphics.COLOR_TRANSPARENT);
+                // half-bright: ornament behind the batons, see render_v3
+                dc.setColor(0x685632, Graphics.COLOR_TRANSPARENT);
                 dc.fillPolygon([
                     polar(rm, a0), polar(r1, am), polar(rm, a1), polar(r0, am)
                 ] as Array);
@@ -162,7 +170,7 @@ class SquareDial {
 
                 if ((k + row) % 2 == 0) {
                     var g = 0.26;
-                    dc.setColor(0xF4E0A8, Graphics.COLOR_TRANSPARENT);
+                    dc.setColor(0x7C7054, Graphics.COLOR_TRANSPARENT);
                     dc.fillPolygon([
                         polar(rm, am + (a0 - am) * g),
                         polar(rm + (r1 - rm) * g, am),
@@ -212,18 +220,25 @@ class SquareDial {
         for (var h = 0; h < 12; h++) {
             if (h == 0 || h == 6) { continue; }     // XII and VI sit there
             var a = (h.toFloat() / 12) * 2 * Math.PI;
-            var p1 = polar(NUM_R - 9, a);
-            var p2 = polar(NUM_R + 9, a);
-            var dx = p2[0] - p1[0];
-            var dy = p2[1] - p1[1];
-            var l = Math.sqrt(dx * dx + dy * dy);
-            if (l < 1.0) { l = 1.0; }
-            var nx = (-dy / l * p(4.0)).toNumber();
-            var ny = (dx / l * p(4.0)).toNumber();
-
-            dc.setColor(0xF4E0A8, Graphics.COLOR_TRANSPARENT);
+            // radial batons, as render_v3.markers: dark bed, then lit and
+            // shadowed halves
+            var r0 = RING_IN + 8;
+            var r1 = RING_IN + 34;
+            var w = 4.2;
+            dc.setColor(0x000000, Graphics.COLOR_TRANSPARENT);
             dc.fillPolygon([
-                [p1[0] + nx, p1[1] + ny], p2, [p1[0] - nx, p1[1] - ny]
+                side(-w, r0, a), side(w, r0, a), side(w, r1, a), side(-w, r1, a)
+            ] as Array);
+            w -= 1.2;
+            dc.setColor(0xFCEEC4, Graphics.COLOR_TRANSPARENT);
+            dc.fillPolygon([
+                side(-w, r0 + 1.2, a), side(0, r0 + 1.2, a),
+                side(0, r1 - 1.2, a), side(-w, r1 - 1.2, a)
+            ] as Array);
+            dc.setColor(0xC8A050, Graphics.COLOR_TRANSPARENT);
+            dc.fillPolygon([
+                side(0, r0 + 1.2, a), side(w, r0 + 1.2, a),
+                side(w, r1 - 1.2, a), side(0, r1 - 1.2, a)
             ] as Array);
         }
 
