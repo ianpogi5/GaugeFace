@@ -25,7 +25,7 @@ const FADE_FROM = 192;     // solid to here, then falls to black by RING_OUT
 // baked dial to this so the band reaches the edge of a round screen instead of
 // floating inside a black ring, which makes the screen 2*SQ_EDGE units wide for
 // this dial rather than 416. GaugeFaceView scales the live layer to match.
-// Must equal bake_dial.EDGE.
+// Must equal render_v3.EDGE (the bake crop).
 const SQ_EDGE = 198;
 
 // The baked emblem asset, and where bake_emblem.py says it lands on a 416 dial.

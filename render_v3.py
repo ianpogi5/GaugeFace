@@ -37,6 +37,15 @@ BLUE_R = 144          # inner blue dial
 RING_IN, RING_OUT = 146, 208
 FADE_FROM = 192       # band is solid to here, then falls to black by RING_OUT
 
+# Where the round screen actually ends, in 416-units. The baked dial is cropped
+# here, so this is the radius the bezel sits at on device -- and it must equal
+# SQ_EDGE in DialSquare.mc, which scales the live layer to match. It used to be
+# derived as RING_OUT + 2; when RING_OUT moved out to 208 the crop went to 210
+# while SQ_EDGE stayed 198, the dial shrank 6% under its own hands, and the
+# lattice stopped ~20 units short of the bezel. That bare margin read as a black
+# ring round the face. Nothing between the ornament and the bezel may be black.
+EDGE = 198
+
 EMBLEM_SCALE = 1.08   # must match bake_emblem.TARGETS["square"]["scale"]
 
 # The full GOLD ramp runs dark at both ends, which buries small glyphs. Text and
@@ -118,7 +127,7 @@ def blue_centre():
 # bezel. Getting this backwards was also why widening the band made the dial
 # worse: it was widening the wrong material.
 LATTICE_A = 56        # cells around
-LATTICE_R = 2         # rows across the band
+LATTICE_R = 2         # rows across the band, plus one more run under the bezel
 
 
 def ring_field():
@@ -161,7 +170,9 @@ def ornate_ring(img):
     gold = (104, 86, 50, 255)
     bright = (124, 112, 84, 255)
 
-    for row in range(LATTICE_R):
+    # the extra row lies across EDGE, so the screen cuts the lattice off
+    # instead of the lattice stopping short of the screen
+    for row in range(LATTICE_R + 1):
         r0 = field_in + row * step
         r1 = r0 + step
         rm = (r0 + r1) / 2
@@ -436,8 +447,12 @@ def hands(img, h, m, s):
 
 
 def finish(img):
+    """Crop to EDGE, as bake_dial does, so the mock-up shows the device's
+    framing. Showing the full 416 frame here is what hid the black ring."""
+    e = EDGE * SS
+    img = img.crop((C - e, C - e, C + e, C + e))
     mask = Image.new("L", img.size, 0)
-    ImageDraw.Draw(mask).ellipse([0, 0, W - 1, W - 1], fill=255)
+    ImageDraw.Draw(mask).ellipse([0, 0, img.size[0] - 1, img.size[1] - 1], fill=255)
     out = Image.new("RGB", img.size, (14, 14, 16))
     out.paste(img, (0, 0), mask)
     return out.resize((416, 416), Image.LANCZOS)

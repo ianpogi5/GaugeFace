@@ -48,7 +48,7 @@ RES_ID = "DialSquare"
 # The consequence: the screen is 2*EDGE units wide for this dial, not 416. The
 # live layer (name, day/date, hands) must scale to match or it drifts off the
 # artwork, which is what SQ_EDGE in DialSquare.mc is for. Keep the two equal.
-EDGE = V3.RING_OUT + 2
+EDGE = V3.EDGE      # render_v3 owns it, so the mock-up crops the same way
 
 # 256 is the most a palettised PNG carries, and the dial is two ramps (navy and
 # gold) so it quantises well. Dithering matters here: without it the blue field

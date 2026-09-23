@@ -107,6 +107,15 @@ These apply to both dials unless noted.
   it read as a disc pasted onto the screen. The band now reaches `RING_OUT` 208
   and falls to black from `FADE_FROM` 192. Do not add an outer rim or an outer
   bead ring back — both reinstate the hard edge.
+- **No black ring between the dial and the bezel — ever.** The owner has asked
+  for this explicitly. The lattice runs one row past the screen edge
+  (`LATTICE_R + 1` rows) so the bezel cuts the ornament off rather than the
+  ornament stopping short of it. A black ring came back once by accident: the
+  crop was derived as `RING_OUT + 2`, so moving `RING_OUT` to 208 moved the crop
+  to 210 while `SQ_EDGE` stayed 198 — the dial shrank 6% under its own hands and
+  left ~20 units of bare field at the rim. The mock-up hid it because it showed
+  the full 416 frame. `render_v3.EDGE` now owns the crop, `bake_dial` and
+  `finish()` both use it, and it is a literal, not derived from the band.
 - **The band's *width* is a taste call, not a fidelity one.** The reference gives
   roughly 40% of the radius to the band; this dial gives it 30%
   (`BLUE_R` 144, band 146–208 with the outer 16 fading out), because a narrower
@@ -229,7 +238,7 @@ _s = (_style == STYLE_GAUGE) ? (_w / 416.0) : (_w / (2.0 * SQ_EDGE));
 because the Square dial's PNG is baked *cropped to the dial's rim* — so the
 screen is `2 * SQ_EDGE` = 396 units wide for that dial, not 416. Crop it
 otherwise and the band floats inside a black ring instead of reaching the edge
-of a round screen. `SQ_EDGE` (`DialSquare.mc`) and `EDGE` (`bake_dial.py`) must
+of a round screen. `SQ_EDGE` (`DialSquare.mc`) and `EDGE` (`render_v3.py`, used by `bake_dial.py`) must
 stay equal, or the live layer — name, day/date, hands — drifts off the artwork.
 `applyScale` runs from `buildDial`, not `onLayout`, because the style can change
 without a relayout.
@@ -442,7 +451,7 @@ overnight.
 - Constants are duplicated between the Python and the Monkey C on purpose. After
   changing either, check them against each other; a mismatch shows up as a dial
   that looks right in Python and wrong on the watch. `SQ_EDGE` ↔
-  `bake_dial.EDGE` is the pair that breaks the live layer's alignment.
+  `render_v3.EDGE` is the pair that breaks the live layer's alignment.
 - The compiler now catches what the old cross-reference-by-script audit was for
   — `Rez.*` against the resource declarations, `@Strings.*` in `settings.xml`
   against `strings.xml`. It does **not** catch property names passed as strings
